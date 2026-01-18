@@ -1,0 +1,10 @@
+Raw: {'nodes': 37, 'edges': 62}
+Logical: {'nodes': 6, 'edges': 3}
+Total Text Found: 0
+Edges: 3
+Node logical_node_14 (data): Area=6084.0
+Node logical_node_15 (data): Area=6084.0
+Node logical_node_16 (process): Area=60528.0
+Node logical_node_25 (process): Area=34980.0
+Node logical_node_26 (data): Area=330105.0
+Node logical_node_31 (data): Area=16766.0
