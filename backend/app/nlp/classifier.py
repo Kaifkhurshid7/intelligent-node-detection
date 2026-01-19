@@ -69,24 +69,30 @@ class Classifier:
         Returns:
             Classification string
         """
-        # Post-Merge Semantic Classification (Step 5)
+    def _classify_node(self, node: Dict, labels: List[str]) -> str:
+        """
+        Classify a single node based on shape, type, and text.
+        """
         node_type = node.get('type', 'unknown')
-        # 1. Shape Geometry based defaults
+        
+        # 1. Map shapes to logic (Refined for Task 5)
         shape_mapping = {
-            'circle': 'terminal',
-            'oval': 'terminal',
+            'circle': 'start', # Often start/end
+            'oval': 'start',
             'rectangle': 'process',
             'diamond': 'decision',
             'polygon': 'data',
         }
         
-        base_class = shape_mapping.get(node_type, 'connector')
+        base_class = shape_mapping.get(node_type, 'process')
         
-        # 2. Refine with text content (FAANG-grade semantic grouping)
+        # 2. Refine with text content (Highest priority)
         if labels:
             text_class = self._classify_by_text(labels)
             if text_class and text_class != 'connector':
-                # Higher weight to text meaning (e.g., text "Start" in a rectangle -> terminal)
+                # Special cases for start/end which often share the same shape
+                if text_class == 'start': return 'start'
+                if text_class == 'end': return 'end'
                 return text_class
         
         return base_class

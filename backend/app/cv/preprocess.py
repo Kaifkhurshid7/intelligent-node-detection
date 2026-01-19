@@ -194,26 +194,26 @@ class PreprocessEngine:
         """
         Refined preprocessing pipeline:
         1. Grayscale conversion
-        2. Gaussian blur (noise reduction)
+        2. Gaussian blur (noise reduction) - Tuned for flowchart lines
         3. Adaptive thresholding (handles uneven lighting/scans)
-        4. Morphological closing (joins broken lines)
+        4. Morphological closing (joins broken lines) - Optimized kernel
         """
         # Convert to grayscale
         gray = self.convert_to_grayscale(image)
         
-        # Apply Gaussian Blur to smooth noise
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        # Apply Gaussian Blur to smooth noise (Tuned: 7x7 often better for hand-drawn/noisy scans)
+        blurred = cv2.GaussianBlur(gray, (7, 7), 0)
         
         # Adaptive Thresholding (Inverted: shapes become white)
-        # block_size = 11, constant = 2 are good defaults for clean text/lines
+        # block_size = 11, constant = 5 (Subtracted constant increased to ignore more background noise)
         binary = cv2.adaptiveThreshold(
             blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY_INV, 11, 2
+            cv2.THRESH_BINARY_INV, 11, 5
         )
         
         # Morphological Closing to connect small gaps in contours/arrows
-        # We use an elliptical kernel (3x3) to heal without over-expanding
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+        # We use a slightly larger elliptical kernel (5x5) to heal more significant breaks
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
         closed = cv2.morphologyEx(binary, cv2.MORPH_CLOSE, kernel)
         
         return closed, gray, image

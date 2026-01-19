@@ -10,6 +10,8 @@ class NodeDetector:
     def __init__(self):
         """Initialize node detector"""
         self.node_counter = 0
+        self.MIN_CONTOUR_AREA = 100 # Ignore dots/punctuation
+        self.MIN_BBOX_SIZE = 400   # 20x20 minimum logical shape size
     
     def detect(self, image) -> List[Dict[str, Any]]:
         """
@@ -30,6 +32,10 @@ class NodeDetector:
         contours = res[0] if len(res) == 2 else res[1]
             
         for i, contour in enumerate(contours):
+            # Pre-filter by area before full analysis
+            if cv2.contourArea(contour) < self.MIN_CONTOUR_AREA:
+                continue
+                
             node = self._analyze_contour(contour)
             if node and self._is_valid_node(node):
                 nodes.append(node)
@@ -41,7 +47,7 @@ class NodeDetector:
         Analyze a contour and extract node properties.
         """
         area = cv2.contourArea(contour)
-        if area < 50:
+        if area < self.MIN_CONTOUR_AREA:
             return None
         
         x, y, w, h = cv2.boundingRect(contour)
@@ -106,17 +112,14 @@ class NodeDetector:
         return 'unknown'
     
     def _is_valid_node(self, node) -> bool:
-        min_size = 30 # Increased slightly to filter noise
-        max_size = 1000000 
-        
         bbox = node['bbox']
         size = bbox['w'] * bbox['h']
         
-        if not (min_size <= size <= max_size):
+        if size < self.MIN_BBOX_SIZE:
             return False
             
         aspect = node['aspect_ratio']
-        if aspect < 0.05 or aspect > 20:
+        if aspect < 0.1 or aspect > 10: # Refined aspect ratio limits
             return False
             
         return True

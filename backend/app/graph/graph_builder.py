@@ -11,16 +11,9 @@ class GraphBuilder:
         """Initialize graph builder"""
         self.graph = None
     
-    def build_from_elements(self, elements: List[Dict], edges: List[Dict] = None) -> Dict[str, Any]:
+    def build_from_elements(self, elements: List[Dict], edges: List[Dict] = None, raw_nodes_count: int = 0, raw_edges_count: int = 0) -> Dict[str, Any]:
         """
-        Build a graph from classified diagram elements.
-        
-        Args:
-            elements: List of classified elements (nodes) with metadata
-            edges: List of edges connecting nodes (optional)
-            
-        Returns:
-            Dictionary with nodes and edges for JSON serialization
+        Build a graph from classified diagram elements and enforce logical sanity rules.
         """
         self.graph = nx.DiGraph()
         
@@ -71,18 +64,61 @@ class GraphBuilder:
                         'label': edge.get('label', ''),
                         'direction': edge.get('direction', '->'),
                     })
-        
-        return {
+
+        # --- TASK 8: Enforce Graph Sanity Rules ---
+        sanity_violations = self.check_sanity_rules()
+
+        # --- TASK 10: Add Confidence Metrics ---
+        node_reduction = ((raw_nodes_count - len(nodes)) / raw_nodes_count * 100) if raw_nodes_count > 0 else 0
+
+        logical_graph = {
             'nodes': nodes,
             'edges': edge_list,
             'metadata': {
                 'node_count': len(nodes),
                 'edge_count': len(edge_list),
-                'graph_type': 'directed',
+                'node_reduction_pct': round(node_reduction, 1),
+                'sanity_violations': sanity_violations,
                 'start_nodes': self.find_start_nodes(),
                 'end_nodes': self.find_end_nodes(),
             }
         }
+
+        # --- TASK 9: Maintain Raw vs Logical Graphs ---
+        return {
+            'raw_graph': {
+                'nodes': raw_nodes_count,
+                'edges': raw_edges_count
+            },
+            'logical_graph': logical_graph,
+            'graph': logical_graph # For backward compatibility
+        }
+
+    def check_sanity_rules(self) -> List[str]:
+        """Check flowchart logic rules and return list of violations"""
+        violations = []
+        if self.graph is None:
+            return violations
+
+        for node_id in self.graph.nodes():
+            node_data = self.graph.nodes[node_id]
+            node_type = node_data.get('type')
+            in_degree = self.graph.in_degree(node_id)
+            out_degree = self.graph.out_degree(node_id)
+
+            # Rule: Start node has no incoming edges
+            if node_type == 'start' and in_degree > 0:
+                violations.append(f"Start node {node_id} has incoming edges")
+
+            # Rule: End node has no outgoing edges
+            if node_type == 'end' and out_degree > 0:
+                violations.append(f"End node {node_id} has outgoing edges")
+
+            # Rule: Decision nodes have >=2 outgoing edges
+            if node_type == 'decision' and out_degree < 2:
+                violations.append(f"Decision node {node_id} has only {out_degree} outgoing edge(s)")
+
+        return violations
     
     def add_edge(self, source_id: str, target_id: str, label: str = "", arrow_type: str = "->"):
         """

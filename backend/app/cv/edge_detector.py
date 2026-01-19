@@ -78,37 +78,60 @@ class EdgeDetector:
             return []
 
     def _cluster_segments(self, segments: List[List[int]]) -> List[Dict]:
-        """Cluster raw segments that belong to the same logical line/arrow"""
+        """Cluster raw segments that belong to the same logical line/arrow using proximity and angle"""
         if not segments:
             return []
             
         clusters = []
         used = set()
         
-        for i, s1 in enumerate(segments):
+        # Calculate angles for all segments
+        segment_data = []
+        for s in segments:
+            angle = math.degrees(math.atan2(s[3] - s[1], s[2] - s[0])) % 180
+            segment_data.append({'coords': s, 'angle': angle})
+
+        for i, s1 in enumerate(segment_data):
             if i in used:
                 continue
                 
-            current_cluster = [s1]
+            current_cluster = [s1['coords']]
             used.add(i)
             
-            # Simple greedy clustering (proximity of endpoints)
-            for j, s2 in enumerate(segments):
+            for j, s2 in enumerate(segment_data):
                 if j in used:
                     continue
-                    
-                # Check if any endpoints are close (threshold 30px)
-                if self._get_min_endpoint_dist(s1, s2) < 30:
-                    current_cluster.append(s2)
+                
+                # Check proximity of endpoints
+                dist = self._get_min_endpoint_dist(s1['coords'], s2['coords'])
+                
+                # Check angular similarity (within 15 degrees)
+                angle_diff = abs(s1['angle'] - s2['angle'])
+                angle_diff = min(angle_diff, 180 - angle_diff)
+                
+                if dist < 40 and angle_diff < 15:
+                    current_cluster.append(s2['coords'])
                     used.add(j)
                     
-            # Compute aggregate endpoints for the cluster
-            xs = [s[0] for s in current_cluster] + [s[2] for s in current_cluster]
-            ys = [s[1] for s in current_cluster] + [s[3] for s in current_cluster]
+            # Compute aggregate endpoints (farthest points in cluster)
+            pts = []
+            for s in current_cluster:
+                pts.append((s[0], s[1]))
+                pts.append((s[2], s[3]))
+            
+            # Find extreme points
+            best_pair = (pts[0], pts[1])
+            max_d = 0
+            for p1 in pts:
+                for p2 in pts:
+                    d = (p1[0]-p2[0])**2 + (p1[1]-p2[1])**2
+                    if d > max_d:
+                        max_d = d
+                        best_pair = (p1, p2)
             
             clusters.append({
                 'segments': current_cluster,
-                'endpoints': (min(xs), min(ys), max(xs), max(ys))
+                'endpoints': (best_pair[0][0], best_pair[0][1], best_pair[1][0], best_pair[1][1])
             })
             
         return clusters
@@ -118,21 +141,26 @@ class EdgeDetector:
         p2a, p2b = (s2[0], s2[1]), (s2[2], s2[3])
         
         dists = [
-            math.sqrt((p1a[0]-p2a[0])**2 + (p1a[1]-p2a[1])**2),
-            math.sqrt((p1a[0]-p2b[0])**2 + (p1a[1]-p2b[1])**2),
-            math.sqrt((p1b[0]-p2a[0])**2 + (p1b[1]-p2a[1])**2),
-            math.sqrt((p1b[0]-p2b[0])**2 + (p1b[1]-p2b[1])**2)
+            math.hypot(p1a[0]-p2a[0], p1a[1]-p2a[1]),
+            math.hypot(p1a[0]-p2b[0], p1a[1]-p2b[1]),
+            math.hypot(p1b[0]-p2a[0], p1b[1]-p2a[1]),
+            math.hypot(p1b[0]-p2b[0], p1b[1]-p2b[1])
         ]
         return min(dists)
 
-    def _find_nearest_node(self, nodes: List[Dict], point: tuple, max_dist: int = 150) -> str:
-        """Find node whose center is closest to point"""
+    def _find_nearest_node(self, nodes: List[Dict], point: tuple, max_dist: int = 200) -> str:
+        """Find node whose boundary is closest to point"""
         min_dist = float('inf')
         best_id = None
         
+        px, py = point
         for node in nodes:
-            center = node['center']
-            dist = math.sqrt((center['x'] - point[0])**2 + (center['y'] - point[1])**2)
+            bbox = node['bbox']
+            # Distance to rectangle
+            dx = max(bbox['x'] - px, 0, px - (bbox['x'] + bbox['w']))
+            dy = max(bbox['y'] - py, 0, py - (bbox['y'] + bbox['h']))
+            dist = math.hypot(dx, dy)
+            
             if dist < min_dist and dist < max_dist:
                 min_dist = dist
                 best_id = node['id']

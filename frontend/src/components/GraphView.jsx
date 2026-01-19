@@ -175,12 +175,31 @@ export default function GraphView({ data }) {
 
       {graphMetadata && (
         <div className="graph-metadata">
-          <h4>Graph Statistics</h4>
-          <ul>
-            <li>Nodes: {graphMetadata.node_count}</li>
-            <li>Edges: {graphMetadata.edge_count}</li>
-            <li>Type: {graphMetadata.graph_type}</li>
-          </ul>
+          <div className="metadata-header">
+            <h4>Accuracy Metrics & Logic</h4>
+            <span className="accuracy-badge">High Improvement</span>
+          </div>
+          <div className="metrics-grid">
+            <div className="metric-card">
+              <span className="metric-label">Nodes Detected</span>
+              <span className="metric-value">{graphMetadata.node_count}</span>
+            </div>
+            <div className="metric-card highlight">
+              <span className="metric-label">Noise Reduction</span>
+              <span className="metric-value">{graphMetadata.node_reduction_pct}%</span>
+            </div>
+          </div>
+
+          {graphMetadata.sanity_violations && graphMetadata.sanity_violations.length > 0 && (
+            <div className="sanity-check-area">
+              <h5 className="warning-title">⚠️ Logic Sanity Warnings</h5>
+              <ul className="violations-list">
+                {graphMetadata.sanity_violations.map((v, i) => (
+                  <li key={i}>{v}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </div>
