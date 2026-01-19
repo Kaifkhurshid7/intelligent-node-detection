@@ -17,6 +17,7 @@ function App() {
   const [analysisResult, setAnalysisResult] = useState(null);
   const [apiStatus, setApiStatus] = useState("checking");
   const [errorMessage, setErrorMessage] = useState("");
+  const [resetCounter, setResetCounter] = useState(0);
 
   useEffect(() => {
     const checkApiHealth = async () => {
@@ -37,6 +38,7 @@ function App() {
 
   const handleClearResults = () => {
     setAnalysisResult(null);
+    setResetCounter(prev => prev + 1);
   };
 
   return (
@@ -88,7 +90,7 @@ function App() {
               </div>
               <p>Upload your image for AI processing</p>
             </div>
-            <Upload onUploadSuccess={handleUploadSuccess} />
+            <Upload key={resetCounter} onUploadSuccess={handleUploadSuccess} />
           </aside>
 
           {/* Right: Visualization Area */}
