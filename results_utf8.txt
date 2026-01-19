@@ -1,0 +1,29 @@
+﻿--- Evaluating Accuracy for: flowchart.png ---
+
+[SUMMARY METRICS]
+Noise Reduction: 66.7%
+Logical Nodes: 8 (Reduced from 24 raw contours)
+Logical Edges: 5
+
+[LOGIC NARRATIVE]
+  Step 1: Perform action: Step logical_node_2
+  Step 2: Start the process: Step logical_node_3
+  Step 3: Perform action: Step logical_node_4
+  Step 4: Perform action: Step logical_node_5
+  Step 5: Perform action: Step logical_node_8
+  Step 6: Perform action: Step logical_node_7
+  Step 7: Perform action: Step logical_node_1
+  Step 8: Perform action: Step logical_node_6
+
+[LOGIC SANITY CHECK]
+ Perfect Logic! No sanity violations found.
+
+[NODE CLASSIFICATION]
+logical_node_1 | Type: data       | Shape: polygon    | Text: [No Text]
+logical_node_2 | Type: process    | Shape: rectangle  | Text: [No Text]
+logical_node_3 | Type: start      | Shape: oval       | Text: [No Text]
+logical_node_4 | Type: data       | Shape: polygon    | Text: [No Text]
+logical_node_5 | Type: data       | Shape: polygon    | Text: [No Text]
+logical_node_6 | Type: process    | Shape: rectangle  | Text: [No Text]
+logical_node_7 | Type: data       | Shape: polygon    | Text: [No Text]
+logical_node_8 | Type: data       | Shape: polygon    | Text: [No Text]

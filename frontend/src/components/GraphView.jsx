@@ -6,7 +6,7 @@ import ForceGraph2D from 'react-force-graph-2d';
  */
 export default function GraphView({ data }) {
   const [expandedNode, setExpandedNode] = useState(null);
-  const [viewMode, setViewMode] = useState('graph'); // 'graph', 'nodes', 'edges', 'raw'
+  const [viewMode, setViewMode] = useState('graph'); // 'graph', 'steps', 'nodes', 'edges', 'raw'
   const graphRef = useRef();
 
   if (!data) {
@@ -19,7 +19,27 @@ export default function GraphView({ data }) {
 
   const nodes = data.nodes || [];
   const edges = data.edges || [];
+  const narrative = data.logical_graph?.narrative || [];
   const graphMetadata = data.graph?.metadata || {};
+
+  const copyNarrativeToClipboard = () => {
+    const text = narrative.join('\n');
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Narrative copied to clipboard!');
+    }, (err) => {
+      console.error('Could not copy text: ', err);
+    });
+  };
+
+  const highlightText = (text) => {
+    const words = ['Start', 'End', 'Decision', 'action'];
+    let highlighted = text;
+    words.forEach(word => {
+      const regex = new RegExp(`\\b${word}\\b`, 'gi');
+      highlighted = highlighted.replace(regex, `<span class="hl-${word.toLowerCase()}">$&</span>`);
+    });
+    return <span dangerouslySetInnerHTML={{ __html: highlighted }} />;
+  };
 
   // Prepare graph data for ForceGraph2D
   const graphData = {
@@ -68,6 +88,12 @@ export default function GraphView({ data }) {
           onClick={() => setViewMode('graph')}
         >
           Graph Visual
+        </button>
+        <button
+          className={`control-btn ${viewMode === 'steps' ? 'active' : ''}`}
+          onClick={() => setViewMode('steps')}
+        >
+          Logical Steps
         </button>
         <button
           className={`control-btn ${viewMode === 'nodes' ? 'active' : ''}`}
@@ -140,6 +166,31 @@ export default function GraphView({ data }) {
               cooldownTicks={100}
               onEngineStop={() => graphRef.current.zoomToFit(400)}
             />
+          </div>
+        )}
+
+        {viewMode === 'steps' && (
+          <div className="steps-section">
+            <div className="section-header-flex">
+              <h3>Intelligent Workflow Narrative</h3>
+              <button onClick={copyNarrativeToClipboard} className="text-copy-btn">
+                Copy to Clipboard
+              </button>
+            </div>
+            {narrative.length === 0 ? (
+              <p className="no-items">No logic could be interpreted from this graph.</p>
+            ) : (
+              <div className="narrative-list">
+                {narrative.map((step, idx) => (
+                  <div key={idx} className={`narrative-item ${step.includes('↳') ? 'indent-branch' : ''}`}>
+                    <span className="step-marker">{step.startsWith('Step') ? step.split(':')[0] : '•'}</span>
+                    <span className="step-content">
+                      {highlightText(step.includes(':') ? step.split(':').slice(1).join(':').trim() : step)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

@@ -39,8 +39,7 @@ export default function Upload({ onUploadSuccess }) {
       const result = await api.analyzeDiagram(file);
       if (result.success) {
         onUploadSuccess(result.data);
-        setFile(null);
-        setPreview('');
+        // Removed setFile(null) and setPreview('') to keep image visible
       } else {
         setError(result.message || 'Upload failed');
       }

@@ -38,6 +38,14 @@ def evaluate_accuracy(image_path):
         print(f"Logical Nodes: {metadata.get('node_count')} (Reduced from {raw_graph.get('nodes')} raw contours)")
         print(f"Logical Edges: {metadata.get('edge_count')}")
 
+        print("\n[LOGIC NARRATIVE]")
+        narrative = logical_graph.get("narrative", [])
+        if narrative:
+            for step in narrative:
+                print(f"  {step}")
+        else:
+            print("  No narrative generated.")
+
         print("\n[LOGIC SANITY CHECK]")
         violations = metadata.get("sanity_violations", [])
         if not violations:

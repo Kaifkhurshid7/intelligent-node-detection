@@ -10,20 +10,29 @@ class GraphBuilder:
     def __init__(self):
         """Initialize graph builder"""
         self.graph = None
+        self.raw_graph = None # Added for raw graph
+        self.nodes_data = {} # Added for node data storage
     
-    def build_from_elements(self, elements: List[Dict], edges: List[Dict] = None, raw_nodes_count: int = 0, raw_edges_count: int = 0) -> Dict[str, Any]:
+    def build_from_elements(self, elements: List[Dict], edges: List[Dict], raw_nodes_count: int, raw_edges_count: int) -> Dict[str, Any]:
         """
         Build a graph from classified diagram elements and enforce logical sanity rules.
         """
-        self.graph = nx.DiGraph()
-        
+        # Reset current state
+        self.graph = nx.DiGraph() # This will be the logical graph
+        self.raw_graph = nx.DiGraph() # This will store all raw elements
+        self.nodes_data = {} # Store all node data for easy lookup
+
         nodes = []
         edge_list = []
         
-        # Add nodes
+        # Add nodes to raw_graph and nodes_data
         for element in elements:
             node_id = element.get('id')
             if node_id:
+                self.nodes_data[node_id] = element
+                self.raw_graph.add_node(node_id, **element) # Add all attributes to raw_graph node
+
+                # Add nodes to the logical graph (self.graph)
                 self.graph.add_node(
                     node_id,
                     type=element.get('semantic_class', 'unknown'),
@@ -43,30 +52,36 @@ class GraphBuilder:
                     'confidence': element.get('confidence', 0.0),
                 })
         
-        # Add edges
+        # Add edges to raw_graph and logical graph
         if edges:
             for edge in edges:
                 source = edge.get('source')
                 target = edge.get('target')
                 
-                if source and target and source in self.graph and target in self.graph:
-                    self.graph.add_edge(
-                        source,
-                        target,
-                        label=edge.get('label', ''),
-                        direction=edge.get('direction', '->'),
-                        confidence=edge.get('confidence', 0.5),
-                    )
-                    
-                    edge_list.append({
-                        'source': source,
-                        'target': target,
-                        'label': edge.get('label', ''),
-                        'direction': edge.get('direction', '->'),
-                    })
+                if source and target:
+                    self.raw_graph.add_edge(source, target, **edge) # Add all attributes to raw_graph edge
+
+                    if source in self.graph and target in self.graph: # Only add to logical graph if nodes exist
+                        self.graph.add_edge(
+                            source,
+                            target,
+                            label=edge.get('label', ''),
+                            direction=edge.get('direction', '->'),
+                            confidence=edge.get('confidence', 0.5),
+                        )
+                        
+                        edge_list.append({
+                            'source': source,
+                            'target': target,
+                            'label': edge.get('label', ''),
+                            'direction': edge.get('direction', '->'),
+                        })
 
         # --- TASK 8: Enforce Graph Sanity Rules ---
         sanity_violations = self.check_sanity_rules()
+
+        # --- TASK 11: Logic Narrative Generation ---
+        narrative = self._generate_narrative(elements, edges)
 
         # --- TASK 10: Add Confidence Metrics ---
         node_reduction = ((raw_nodes_count - len(nodes)) / raw_nodes_count * 100) if raw_nodes_count > 0 else 0
@@ -81,7 +96,8 @@ class GraphBuilder:
                 'sanity_violations': sanity_violations,
                 'start_nodes': self.find_start_nodes(),
                 'end_nodes': self.find_end_nodes(),
-            }
+            },
+            'narrative': narrative
         }
 
         # --- TASK 9: Maintain Raw vs Logical Graphs ---
@@ -244,3 +260,60 @@ class GraphBuilder:
                     pass
         
         return paths
+
+    def _generate_narrative(self, nodes: List[Dict], edges: List[Dict]) -> List[str]:
+        """
+        Translates the directed graph into a human-readable chronological narrative.
+        """
+        narrative = []
+        start_nodes = self.find_start_nodes()
+        
+        if not start_nodes:
+            # If no node has in-degree 0 in the logical graph, use raw graph or fallback
+            start_nodes = [node_id for node_id, d in self.graph.in_degree() if d == 0]
+            
+        if not start_nodes and nodes:
+            start_nodes = [nodes[0]['id']] # Final fallback
+
+        # BFS for narrative flow
+        visited = set()
+        queue = []
+        for sn in start_nodes:
+            queue.append(sn)
+            visited.add(sn)
+
+        step_idx = 1
+        
+        while queue:
+            node_id = queue.pop(0)
+            node_data = self.nodes_data.get(node_id)
+            if not node_data: continue
+            
+            label = " ".join(node_data.get('labels', [])) or f"Step {node_id}"
+            sem_class = node_data.get('semantic_class', 'process').lower()
+            
+            sentence = f"Step {step_idx}: "
+            if sem_class == 'start':
+                sentence += f"Start the process: {label}"
+            elif sem_class == 'end':
+                sentence += f"End of process: {label}"
+            elif sem_class == 'decision':
+                sentence += f"Decision point: {label}"
+            else:
+                sentence += f"Perform action: {label}"
+            
+            narrative.append(sentence)
+            step_idx += 1
+            
+            # Handle outgoing edges
+            out_edges = self.raw_graph.out_edges(node_id, data=True)
+            for _, target, data in out_edges:
+                edge_label = data.get('label', '')
+                if sem_class == 'decision' and edge_label:
+                    narrative.append(f"   ↳ If {edge_label}, proceed to {target}")
+                
+                if target not in visited:
+                    visited.add(target)
+                    queue.append(target)
+                    
+        return narrative

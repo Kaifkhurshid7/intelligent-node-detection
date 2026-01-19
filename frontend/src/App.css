@@ -269,11 +269,125 @@ body {
   border-bottom: none;
 }
 
-/* Footer */
+/* Logical Steps / Narrative View */
+.steps-section {
+  padding: 1rem;
+}
+
+.section-header-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.text-copy-btn {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.text-copy-btn:hover {
+  background: var(--accent);
+  color: var(--bg-deep);
+  border-color: var(--accent);
+}
+
+.narrative-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.narrative-item {
+  display: flex;
+  gap: 16px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  align-items: flex-start;
+  animation: slideInRight 0.3s ease forwards;
+  opacity: 0;
+}
+
+.narrative-item:nth-child(n) {
+  animation-delay: calc(var(--idx) * 0.05s);
+}
+
+.indent-branch {
+  margin-left: 2rem;
+  border-left: 2px solid var(--text-secondary);
+  background: transparent;
+  padding: 8px 14px;
+}
+
+.step-marker {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-top: 2px;
+  min-width: 60px;
+}
+
+.step-content {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+/* Keyword Highlighting */
+.hl-start {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.hl-end {
+  color: var(--error);
+  font-weight: 600;
+}
+
+.hl-decision {
+  color: var(--warning);
+  font-weight: 600;
+}
+
+.hl-action {
+  color: #3b82f6;
+  font-weight: 600;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Footer Styling */
 .main-footer {
   padding: 2rem;
   text-align: center;
   font-size: 0.75rem;
   color: var(--text-secondary);
   border-top: 1px solid var(--border-subtle);
+}
+
+.version {
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.1em;
 }

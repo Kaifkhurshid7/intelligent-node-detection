@@ -1,4 +1,4 @@
-"""FastAPI entry point for the application"""
+"""FastAPI entry point for the application - Reloading..."""
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
