@@ -13,49 +13,63 @@ class EdgeDetector:
         self.min_line_length = 50
         self.max_line_gap = 20
     
-    def detect_edges_from_contours(self, image, nodes: List[Dict]) -> List[Dict[str, Any]]:
+    def detect_edges_from_contours(self, image, nodes: List[Dict], label_elements: List[Dict] = None) -> List[Dict[str, Any]]:
         """
-        Refined Edge detection:
-        1. Multi-scale line detection
-        2. Orientation-based clustering
-        3. Endpoint matching to nearest logical shapes
+        Refined Edge detection with label assignment.
         """
         if len(nodes) < 2:
             return []
             
         # 1. Detect raw segments
-        raw_lines = self.detect_lines(image, threshold=50) # Use lower threshold for more segments
+        raw_lines = self.detect_lines(image, threshold=50)
         if raw_lines is None or len(raw_lines) == 0:
             return []
             
-        # flatten segments [x1, y1, x2, y2]
         segments = [line[0] for line in raw_lines]
         
-        # 2. Cluster segments (Simplified: group by proximity and angle)
+        # 2. Cluster segments
         clusters = self._cluster_segments(segments)
         
         # 3. Connect logical nodes via clustered edges
         logical_edges = []
         for cluster in clusters:
-            # Represent cluster by its endpoints
             x1, y1, x2, y2 = cluster['endpoints']
             
             source_id = self._find_nearest_node(nodes, (x1, y1))
             target_id = self._find_nearest_node(nodes, (x2, y2))
             
             if source_id and target_id and source_id != target_id:
-                # Basic direction heuristic for now (source to target)
                 logical_edges.append({
                     'source': source_id,
                     'target': target_id,
                     'direction': '->',
-                    'label': ''
+                    'label': '',
+                    'center': ((x1+x2)/2, (y1+y2)/2)
                 })
         
-        # Deduplicate edges between same source-target pair
+        # 4. Assign labels from label_elements (Step C)
+        if label_elements:
+            for label_node in label_elements:
+                label_text = ' '.join(label_node.get('labels', []))
+                lc = label_node['center']
+                
+                # Find nearest edge
+                min_dist = float('inf')
+                best_edge = None
+                for edge in logical_edges:
+                    ec = edge['center']
+                    dist = math.hypot(ec[0] - lc['x'], ec[1] - lc['y'])
+                    if dist < min_dist and dist < 150: # max dist 150px
+                        min_dist = dist
+                        best_edge = edge
+                
+                if best_edge:
+                    best_edge['label'] = label_text
+
+        # Deduplicate edges between same source-target-label triple
         unique_edges = {}
         for edge in logical_edges:
-            key = (edge['source'], edge['target'])
+            key = (edge['source'], edge['target'], edge['label'])
             if key not in unique_edges:
                 unique_edges[key] = edge
                 

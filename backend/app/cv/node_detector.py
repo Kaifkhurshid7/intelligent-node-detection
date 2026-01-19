@@ -10,8 +10,8 @@ class NodeDetector:
     def __init__(self):
         """Initialize node detector"""
         self.node_counter = 0
-        self.MIN_CONTOUR_AREA = 100 # Ignore dots/punctuation
-        self.MIN_BBOX_SIZE = 400   # 20x20 minimum logical shape size
+        self.MIN_CONTOUR_AREA = 30  # Allow smaller labels
+        self.MIN_BBOX_SIZE = 100    # Allow 10x10 small labels
     
     def detect(self, image) -> List[Dict[str, Any]]:
         """

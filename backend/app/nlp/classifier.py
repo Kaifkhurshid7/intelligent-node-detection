@@ -52,7 +52,7 @@ class Classifier:
                 **node,
                 'semantic_class': semantic_class,
                 'labels': labels,
-                'confidence': self._get_classification_confidence(semantic_class, labels),
+                'confidence': self._get_classification_confidence(semantic_class, labels, node),
             }
             classified.append(classified_node)
         
@@ -189,30 +189,29 @@ class Classifier:
         return not (x1_max < x2_min or x2_max < x1_min or
                     y1_max < y2_min or y2_max < y1_min)
     
-    def _get_classification_confidence(self, class_name: str, labels: List[str]) -> float:
+    def _get_classification_confidence(self, class_name: str, labels: List[str], node: Dict = None) -> float:
         """
-        Calculate confidence score for classification.
-        
-        Args:
-            class_name: Classified class name
-            labels: Associated labels
-            
-        Returns:
-            Confidence score 0.0-1.0
+        Calculate confidence score for classification with geometry boost.
         """
+        base_confidence = 0.5
         if not labels:
-            return 0.5  # Default confidence when no labels
+            # Boost based on geometry if no text
+            if node:
+                solidity = node.get('solidity', 0)
+                if solidity > 0.8: base_confidence += 0.2 # Solid shape boost
+                if node.get('area', 0) > 5000: base_confidence += 0.1 # Large shape boost
+            return min(base_confidence, 0.85)
         
-        # Higher confidence with more labels
+        # High confidence for text matches
         label_count_score = min(len(labels) / 3.0, 1.0)
-        
-        # Higher confidence if text matches keywords
         combined_text = ' '.join(labels).lower()
         keyword_score = 0.5
         
-        for pattern in self.keyword_mappings.get(class_name, []):
-            if re.search(pattern, combined_text, re.IGNORECASE):
-                keyword_score = 0.95
-                break
+        for class_name_target, keywords in self.keyword_mappings.items():
+            if class_name_target == class_name:
+                for pattern in keywords:
+                    if re.search(pattern, combined_text, re.IGNORECASE):
+                        keyword_score = 0.95
+                        break
         
-        return (label_count_score * 0.3) + (keyword_score * 0.7)
+        return min((label_count_score * 0.3) + (keyword_score * 0.7), 1.0)

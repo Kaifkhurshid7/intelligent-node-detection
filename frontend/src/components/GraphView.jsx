@@ -101,6 +101,40 @@ export default function GraphView({ data }) {
               linkDirectionalArrowLength={3.5}
               linkDirectionalArrowRelPos={1}
               linkCurvature={0.25}
+              linkLabel="label"
+              linkCanvasObjectMode={() => 'after'}
+              linkCanvasObject={(link, ctx) => {
+                const MAX_FONT_SIZE = 4;
+                if (!link.label) return;
+
+                const start = link.source;
+                const end = link.target;
+                if (typeof start !== 'object' || typeof end !== 'object') return;
+
+                const textPos = {
+                  x: start.x + (end.x - start.x) / 2,
+                  y: start.y + (end.y - start.y) / 2
+                };
+
+                const relLink = { x: end.x - start.x, y: end.y - start.y };
+                const maxTextLength = Math.sqrt(Math.pow(relLink.x, 2) + Math.pow(relLink.y, 2)) / 2;
+
+                let fontSize = Math.min(MAX_FONT_SIZE, maxTextLength / (link.label.length || 1));
+                ctx.font = `${fontSize}px Sans-Serif`;
+                const textWidth = ctx.measureText(link.label).width;
+                const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.2);
+
+                ctx.save();
+                ctx.translate(textPos.x, textPos.y);
+                ctx.fillStyle = 'rgba(10, 10, 10, 0.8)';
+                ctx.fillRect(-bckgDimensions[0] / 2, -bckgDimensions[1] / 2, ...bckgDimensions);
+
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#a1a1aa';
+                ctx.fillText(link.label, 0, 0);
+                ctx.restore();
+              }}
               width={800}
               height={500}
               cooldownTicks={100}

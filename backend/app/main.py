@@ -106,12 +106,36 @@ async def analyze_diagram(file: UploadFile = File(...)):
         # Refine types using geometry + newly grouped text
         classified_nodes = classifier.classify(logical_nodes, text_elements)
         
-        # Filter noise (Keep nodes that are large enough OR have text)
-        final_nodes = [n for n in classified_nodes if n['area'] > 1000 or n['labels']]
+        # === STAGE 5.1: Advanced Filtering Logic ===
+        # Step A: Confidence Thresholding (> 0.6)
+        # Step B: Area Filtering (> 1000)
+        # Step C: Semantic Rule for Edge Labels
+        
+        final_nodes = []
+        potential_edge_labels = []
+        
+        for n in classified_nodes:
+            text = ' '.join(n.get('labels', [])).strip()
+            text_lower = text.lower()
+            
+            # Step C: Small data nodes OR nodes with common edge keywords (Yes/No/T/F)
+            is_edge_label_text = text_lower in ['yes', 'no', 'y', 'n', 'true', 'false', 't', 'f']
+            is_small_data = (n.get('semantic_class') == 'data' and 1 <= len(text) <= 3)
+            
+            if is_edge_label_text or is_small_data:
+                potential_edge_labels.append(n)
+                continue
+                
+            # Step A & B: Threshold checks (Relaxed)
+            # Override: If it has text labels, it's definitely not noise
+            has_labels = len(n.get('labels', [])) > 0
+            
+            if has_labels or (n['confidence'] >= 0.4 and n.get('area', 0) >= 500):
+                final_nodes.append(n)
         
         # === STAGE 6: Logical Edge Detection (TASK 6 & 7) ===
-        # Connect logical shapes based on visual connectivity and proximity to boundaries
-        edges = edge_detector.detect_edges_from_contours(binary_image, final_nodes)
+        # Connect logical shapes and assign labels from Step C
+        edges = edge_detector.detect_edges_from_contours(binary_image, final_nodes, potential_edge_labels)
         
         # === STAGE 7: Graph Construction and Sanity (TASK 8, 9, 10) ===
         # Build the graph and calculate metrics
