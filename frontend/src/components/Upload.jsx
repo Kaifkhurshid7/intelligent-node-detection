@@ -1,124 +1,136 @@
-import React, { useState } from 'react';
-import '../index.css';
-import api from '../services/api';
-
 /**
- * Upload component with a modern, professional dark-theme aesthetic
+ * Upload Component
+ *
+ * Provides drag-and-drop and click-to-browse file upload with
+ * image preview, loading state, and error feedback.
  */
+
+import React, { useState } from "react";
+import { Upload as UploadIcon } from "lucide-react";
+import api from "../services/api";
+
 export default function Upload({ onUploadSuccess }) {
   const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [preview, setPreview] = useState('');
+  const [error, setError] = useState("");
 
-  const handleFileSelect = (event) => {
-    const selectedFile = event.target.files[0];
-    if (selectedFile) {
-      processFile(selectedFile);
-    }
-  };
-
+  /** Process a selected file: validate and generate preview. */
   const processFile = (selectedFile) => {
     setFile(selectedFile);
-    setError('');
+    setError("");
     const reader = new FileReader();
     reader.onload = (e) => setPreview(e.target.result);
     reader.readAsDataURL(selectedFile);
   };
 
+  /** Handle file input change event. */
+  const handleFileSelect = (e) => {
+    const selected = e.target.files[0];
+    if (selected) processFile(selected);
+  };
+
+  /** Submit the file to the analysis API. */
   const handleUpload = async () => {
     if (!file) {
-      setError('Please select a file');
+      setError("Please select a file");
       return;
     }
 
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
       const result = await api.analyzeDiagram(file);
       if (result.success) {
         onUploadSuccess(result.data);
-        // Removed setFile(null) and setPreview('') to keep image visible
       } else {
-        setError(result.message || 'Upload failed');
+        setError(result.message || "Analysis failed");
       }
     } catch (err) {
-      setError(err.message || 'An error occurred during analysis');
+      setError(err.message || "An error occurred during analysis");
     } finally {
       setLoading(false);
     }
   };
 
+  /** Clear the current file selection. */
   const clearSelection = () => {
     setFile(null);
-    setPreview('');
-    setError('');
+    setPreview("");
+    setError("");
   };
 
+  // Drag-and-drop handlers
   const handleDragOver = (e) => {
     e.preventDefault();
-    e.currentTarget.classList.add('drag-active');
+    e.currentTarget.classList.add("drag-active");
   };
 
   const handleDragLeave = (e) => {
     e.preventDefault();
-    e.currentTarget.classList.remove('drag-active');
+    e.currentTarget.classList.remove("drag-active");
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
-    e.currentTarget.classList.remove('drag-active');
-    const droppedFiles = e.dataTransfer.files;
-    if (droppedFiles.length > 0) {
-      processFile(droppedFiles[0]);
-    }
+    e.currentTarget.classList.remove("drag-active");
+    const dropped = e.dataTransfer.files;
+    if (dropped.length > 0) processFile(dropped[0]);
   };
 
   return (
     <div className="upload-wrapper">
       <div
-        className={`upload-zone ${preview ? 'has-preview' : ''}`}
+        className={`upload-zone ${preview ? "has-preview" : ""}`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
         {preview ? (
           <div className="preview-stage">
-            <img src={preview} alt="Preview" className="image-snapshot" />
+            <img src={preview} alt="Diagram preview" className="image-snapshot" />
             <div className="file-info-overlay">
               <span className="filename-tag">{file?.name}</span>
-              <button onClick={clearSelection} className="change-file-btn">Remove</button>
+              <button onClick={clearSelection} className="change-file-btn">
+                Remove
+              </button>
             </div>
           </div>
         ) : (
           <div className="upload-prompt">
             <div className="icon-circle">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
+              <UploadIcon size={24} />
             </div>
             <p className="primary-text">Drag & drop diagram</p>
-            <p className="secondary-text">PNG, JPG, or SVG up to 10MB</p>
+            <p className="secondary-text">PNG, JPG, or BMP up to 10MB</p>
             <label className="browse-trigger">
               Browse Files
-              <input type="file" onChange={handleFileSelect} accept="image/*" className="hidden-input" />
+              <input
+                type="file"
+                onChange={handleFileSelect}
+                accept="image/*"
+                className="hidden-input"
+              />
             </label>
           </div>
         )}
       </div>
 
-      {error && <div className="error-toast">{error}</div>}
+      {error && <div className="error-toast" role="alert">{error}</div>}
 
       <button
         onClick={handleUpload}
         disabled={!file || loading}
-        className={`submit-btn ${loading ? 'is-loading' : ''}`}
+        className="submit-btn"
+        aria-busy={loading}
       >
         {loading ? (
-          <><span className="spinner"></span> Analyzing...</>
+          <>
+            <span className="spinner" aria-hidden="true"></span> Analyzing...
+          </>
         ) : (
-          'Analyze Diagram'
+          "Analyze Diagram"
         )}
       </button>
     </div>
