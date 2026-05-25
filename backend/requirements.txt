@@ -1,11 +1,18 @@
+# Web framework
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 python-multipart==0.0.6
+
+# Computer vision
 opencv-python==4.8.1.78
 numpy<2.0
+
+# Graph analysis
 networkx==3.1
+
+# OCR
 Pillow==10.0.1
 pytesseract==0.3.10
+
+# NLP (optional - graceful fallback if unavailable)
 spacy==3.7.2
-scikit-image==0.22.0
-scipy==1.11.4

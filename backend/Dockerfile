@@ -1,20 +1,22 @@
-# Use official Python runtime as base image
 FROM python:3.11-slim
 
-# Set working directory
+# Install Tesseract OCR system dependency
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends tesseract-ocr && \
+    rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# Copy requirements
+# Install Python dependencies (cached layer)
 COPY requirements.txt .
-
-# Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy application source
 COPY . .
 
-# Expose port
+# Create required directories
+RUN mkdir -p data/uploads data/samples output/graphs output/visuals
+
 EXPOSE 8000
 
-# Run application
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
