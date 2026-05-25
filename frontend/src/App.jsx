@@ -1,4 +1,13 @@
-import React, { useEffect, useState } from "react";
+/**
+ * App - Root Application Component
+ *
+ * Provides the main layout shell with:
+ *   - Header with API status indicator
+ *   - Two-column grid: upload panel + visualization panel
+ *   - Footer
+ */
+
+import React, { useState } from "react";
 import {
   Activity,
   ShieldCheck,
@@ -6,118 +15,91 @@ import {
   RefreshCcw,
   Layout,
   FileSearch,
-  AlertCircle
-} from "lucide-react"; // Professional Icon Set
+  AlertCircle,
+} from "lucide-react";
 import Upload from "./components/Upload";
 import GraphView from "./components/GraphView";
-import api from "./services/api";
+import { useApiStatus } from "./hooks/useApiStatus";
+import { API_STATUS } from "./constants";
 import "./App.css";
 
 function App() {
   const [analysisResult, setAnalysisResult] = useState(null);
-  const [apiStatus, setApiStatus] = useState("checking");
-  const [errorMessage, setErrorMessage] = useState("");
   const [resetCounter, setResetCounter] = useState(0);
-
-  useEffect(() => {
-    const checkApiHealth = async () => {
-      try {
-        const healthy = await api.healthCheck();
-        setApiStatus(healthy ? "connected" : "disconnected");
-      } catch (err) {
-        setApiStatus("disconnected");
-      }
-    };
-    checkApiHealth();
-  }, []);
+  const apiStatus = useApiStatus();
 
   const handleUploadSuccess = (data) => {
     setAnalysisResult(data);
-    setErrorMessage("");
   };
 
-  const handleClearResults = () => {
+  const handleReset = () => {
     setAnalysisResult(null);
-    setResetCounter(prev => prev + 1);
+    setResetCounter((prev) => prev + 1);
   };
 
   return (
     <div className="app-shell">
-      {/* --- Header --- */}
+      {/* Header */}
       <header className="main-nav">
         <div className="nav-content">
           <div className="brand">
-            <div className="brand-logo-container">
-              <Activity size={24} className="logo-icon" />
-            </div>
+            <Activity size={24} aria-hidden="true" />
             <div>
               <h1>NodeDetection</h1>
-              <p className="brand-tagline">Structured Graph Extraction</p>
+              <p className="brand-tagline">Diagram → Structured Graph</p>
             </div>
           </div>
 
-          <div className={`status-pill ${apiStatus}`}>
+          <div className={`status-pill ${apiStatus}`} aria-live="polite">
             <span className="status-indicator">
-              {apiStatus === "connected" && <ShieldCheck size={14} />}
-              {apiStatus === "checking" && <RefreshCcw size={14} className="spin" />}
-              {apiStatus === "disconnected" && <ServerCrash size={14} />}
+              {apiStatus === API_STATUS.CONNECTED && <ShieldCheck size={14} />}
+              {apiStatus === API_STATUS.CHECKING && <RefreshCcw size={14} className="spin" />}
+              {apiStatus === API_STATUS.DISCONNECTED && <ServerCrash size={14} />}
             </span>
             <span className="status-text">
-              {apiStatus === "connected" && "System Online"}
-              {apiStatus === "checking" && "Connecting..."}
-              {apiStatus === "disconnected" && "Offline"}
+              {apiStatus === API_STATUS.CONNECTED && "Online"}
+              {apiStatus === API_STATUS.CHECKING && "Connecting..."}
+              {apiStatus === API_STATUS.DISCONNECTED && "Offline"}
             </span>
           </div>
         </div>
       </header>
 
-      {/* --- Main Workspace --- */}
+      {/* Main Content */}
       <main className="workspace">
-        {errorMessage && (
-          <div className="critical-alert">
-            <AlertCircle size={18} />
-            <span>{errorMessage}</span>
-          </div>
-        )}
-
         <div className="grid-layout">
-          {/* Left: Action Area */}
+          {/* Left Panel: Upload */}
           <aside className="tool-panel">
             <div className="panel-header">
               <div className="header-with-icon">
-                <FileSearch size={20} />
+                <FileSearch size={20} aria-hidden="true" />
                 <h3>Input Diagram</h3>
               </div>
-              <p>Upload your image for AI processing</p>
+              <p>Upload a flowchart or diagram image for analysis</p>
             </div>
             <Upload key={resetCounter} onUploadSuccess={handleUploadSuccess} />
           </aside>
 
-          {/* Right: Visualization Area */}
+          {/* Right Panel: Visualization */}
           <section className="viewport-panel">
             {analysisResult ? (
               <div className="result-container">
                 <div className="viewport-header">
                   <div className="header-with-icon">
-                    <Layout size={20} />
-                    <h3>Graph Visualization</h3>
+                    <Layout size={20} aria-hidden="true" />
+                    <h3>Analysis Results</h3>
                   </div>
-                  <button onClick={handleClearResults} className="ghost-btn">
-                    <RefreshCcw size={14} />
-                    Reset
+                  <button onClick={handleReset} className="ghost-btn">
+                    <RefreshCcw size={14} aria-hidden="true" /> Reset
                   </button>
                 </div>
-                <div className="canvas-wrapper">
-                  <GraphView data={analysisResult} />
-                </div>
+                <GraphView data={analysisResult} />
               </div>
             ) : (
               <div className="empty-state">
-                <div className="empty-icon-container">
-                  <Layout size={48} strokeWidth={1} />
-                </div>
+                <Layout size={48} strokeWidth={1} aria-hidden="true" />
                 <h3>No Data Processed</h3>
-                <p>Upload a file on the left to begin analysis</p>
+                <p>Upload a diagram to begin analysis</p>
               </div>
             )}
           </section>
@@ -125,7 +107,10 @@ function App() {
       </main>
 
       <footer className="main-footer">
-        <p>© {new Date().getFullYear()} NodeDetection System • <span className="version">DONE BY KAIF</span></p>
+        <p>
+          © {new Date().getFullYear()} Intelligent Node Detection •{" "}
+          <span className="version">v1.0</span>
+        </p>
       </footer>
     </div>
   );

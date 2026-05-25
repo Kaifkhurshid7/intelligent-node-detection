@@ -1,18 +1,18 @@
-version: '3.8'
+version: "3.8"
 
 services:
-  # Backend service
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: intelligent-node-detection-backend
+    container_name: node-detection-backend
     ports:
       - "8000:8000"
     environment:
       - HOST=0.0.0.0
       - PORT=8000
-      - DEBUG=False
+      - DEBUG=false
+      - LOG_LEVEL=info
     volumes:
       - ./backend/data:/app/data
       - ./backend/output:/app/output
@@ -26,16 +26,13 @@ services:
       retries: 3
       start_period: 40s
 
-  # Frontend service
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: intelligent-node-detection-frontend
+    container_name: node-detection-frontend
     ports:
       - "3000:80"
-    environment:
-      - REACT_APP_API_URL=http://localhost:8000
     depends_on:
       backend:
         condition: service_healthy
@@ -46,9 +43,3 @@ services:
 networks:
   app-network:
     driver: bridge
-
-volumes:
-  backend_data:
-    driver: local
-  backend_output:
-    driver: local

@@ -1,12 +1,24 @@
-import React, { useState, useEffect, useRef } from 'react';
-import ForceGraph2D from 'react-force-graph-2d';
-
 /**
- * GraphView component for displaying detected nodes and graph structure
+ * GraphView Component
+ *
+ * Multi-tab visualization of the analysis results:
+ *   - Force-directed graph (interactive 2D)
+ *   - Logical steps narrative
+ *   - Node list with expandable details
+ *   - Edge list
+ *   - Raw JSON inspector
+ *
+ * Also displays accuracy metrics and sanity violation warnings.
  */
+
+import React, { useState, useRef } from "react";
+import ForceGraph2D from "react-force-graph-2d";
+import { VIEW_MODES } from "../constants";
+import { getNodeColor, copyToClipboard } from "../utils/helpers";
+
 export default function GraphView({ data }) {
   const [expandedNode, setExpandedNode] = useState(null);
-  const [viewMode, setViewMode] = useState('graph'); // 'graph', 'steps', 'nodes', 'edges', 'raw'
+  const [viewMode, setViewMode] = useState(VIEW_MODES.GRAPH);
   const graphRef = useRef();
 
   if (!data) {
@@ -20,104 +32,101 @@ export default function GraphView({ data }) {
   const nodes = data.nodes || [];
   const edges = data.edges || [];
   const narrative = data.logical_graph?.narrative || [];
-  const graphMetadata = data.graph?.metadata || {};
+  const metadata = data.graph?.metadata || {};
 
-  const copyNarrativeToClipboard = () => {
-    const text = narrative.join('\n');
-    navigator.clipboard.writeText(text).then(() => {
-      alert('Narrative copied to clipboard!');
-    }, (err) => {
-      console.error('Could not copy text: ', err);
-    });
+  // Transform data for the force-graph library
+  const graphData = {
+    nodes: nodes.map((node) => ({
+      id: node.id,
+      name: node.id,
+      val: node.area ? Math.sqrt(node.area) / 5 : 5,
+      ...node,
+    })),
+    links: edges.map((edge) => ({
+      source: edge.source,
+      target: edge.target,
+      ...edge,
+    })),
   };
 
+  /** Render edge labels on the canvas between connected nodes. */
+  const renderEdgeLabel = (link, ctx) => {
+    if (!link.label) return;
+    const start = link.source;
+    const end = link.target;
+    if (typeof start !== "object" || typeof end !== "object") return;
+
+    const midX = start.x + (end.x - start.x) / 2;
+    const midY = start.y + (end.y - start.y) / 2;
+    const fontSize = 4;
+
+    ctx.save();
+    ctx.font = `${fontSize}px Sans-Serif`;
+    const textWidth = ctx.measureText(link.label).width;
+    const padding = fontSize * 0.2;
+
+    ctx.translate(midX, midY);
+    ctx.fillStyle = "rgba(10, 10, 10, 0.8)";
+    ctx.fillRect(
+      -(textWidth + padding) / 2,
+      -(fontSize + padding) / 2,
+      textWidth + padding,
+      fontSize + padding
+    );
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#a1a1aa";
+    ctx.fillText(link.label, 0, 0);
+    ctx.restore();
+  };
+
+  /** Highlight semantic keywords in narrative text. */
   const highlightText = (text) => {
-    const words = ['Start', 'End', 'Decision', 'action'];
+    const keywords = ["Start", "End", "Decision", "action"];
     let highlighted = text;
-    words.forEach(word => {
-      const regex = new RegExp(`\\b${word}\\b`, 'gi');
-      highlighted = highlighted.replace(regex, `<span class="hl-${word.toLowerCase()}">$&</span>`);
+    keywords.forEach((word) => {
+      const regex = new RegExp(`\\b${word}\\b`, "gi");
+      highlighted = highlighted.replace(
+        regex,
+        `<span class="hl-${word.toLowerCase()}">$&</span>`
+      );
     });
     return <span dangerouslySetInnerHTML={{ __html: highlighted }} />;
   };
 
-  // Prepare graph data for ForceGraph2D
-  const graphData = {
-    nodes: nodes.map(node => ({
-      id: node.id,
-      name: node.id,
-      val: node.area ? Math.sqrt(node.area) / 5 : 5, // scaled size
-      ...node
-    })),
-    links: edges.map(edge => ({
-      source: edge.source,
-      target: edge.target,
-      ...edge
-    }))
+  const handleCopyNarrative = () => {
+    copyToClipboard(narrative.join("\n"));
   };
 
-  const getNodeColor = (node) => {
-    const type = node.semantic_class || node.type || 'unknown';
-    switch (type.toLowerCase()) {
-      case 'start': return '#4CAF50'; // Green
-      case 'end': return '#f44336';   // Red
-      case 'process': return '#2196F3'; // Blue
-      case 'decision': return '#FF9800'; // Orange
-      case 'data': return '#9C27B0';     // Purple
-      default: return '#607D8B';      // Grey
-    }
-  };
-
-  const renderNodeDetails = (node) => (
-    <div className="node-details">
-      <h4>{node.type} ({node.semantic_class || 'Unclassified'})</h4>
-      <p><strong>ID:</strong> {node.id}</p>
-      <p><strong>Labels:</strong> {node.labels?.join(', ') || 'None'}</p>
-      <p><strong>Confidence:</strong> {(node.confidence * 100).toFixed(1)}%</p>
-      <div className="bbox-info">
-        <p><strong>Location:</strong> ({node.center?.x}, {node.center?.y})</p>
-      </div>
-    </div>
-  );
+  // Tab button configuration
+  const tabs = [
+    { id: VIEW_MODES.GRAPH, label: "Graph Visual" },
+    { id: VIEW_MODES.STEPS, label: "Logical Steps" },
+    { id: VIEW_MODES.NODES, label: `Nodes (${nodes.length})` },
+    { id: VIEW_MODES.EDGES, label: `Edges (${edges.length})` },
+    { id: VIEW_MODES.RAW, label: "Raw Data" },
+  ];
 
   return (
     <div className="graph-view-container">
-      <div className="view-controls">
-        <button
-          className={`control-btn ${viewMode === 'graph' ? 'active' : ''}`}
-          onClick={() => setViewMode('graph')}
-        >
-          Graph Visual
-        </button>
-        <button
-          className={`control-btn ${viewMode === 'steps' ? 'active' : ''}`}
-          onClick={() => setViewMode('steps')}
-        >
-          Logical Steps
-        </button>
-        <button
-          className={`control-btn ${viewMode === 'nodes' ? 'active' : ''}`}
-          onClick={() => setViewMode('nodes')}
-        >
-          Nodes ({nodes.length})
-        </button>
-        <button
-          className={`control-btn ${viewMode === 'edges' ? 'active' : ''}`}
-          onClick={() => setViewMode('edges')}
-        >
-          Edges ({edges.length})
-        </button>
-        <button
-          className={`control-btn ${viewMode === 'raw' ? 'active' : ''}`}
-          onClick={() => setViewMode('raw')}
-        >
-          Raw Data
-        </button>
-      </div>
+      {/* Tab Navigation */}
+      <nav className="view-controls" aria-label="View mode tabs">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            className={`control-btn ${viewMode === tab.id ? "active" : ""}`}
+            onClick={() => setViewMode(tab.id)}
+            aria-selected={viewMode === tab.id}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </nav>
 
+      {/* Tab Content */}
       <div className="graph-content">
-        {viewMode === 'graph' && (
-          <div className="force-graph-wrapper" style={{ height: '500px', border: '1px solid #eee', borderRadius: '4px', overflow: 'hidden' }}>
+        {viewMode === VIEW_MODES.GRAPH && (
+          <div className="force-graph-wrapper">
             <ForceGraph2D
               ref={graphRef}
               graphData={graphData}
@@ -128,52 +137,21 @@ export default function GraphView({ data }) {
               linkDirectionalArrowRelPos={1}
               linkCurvature={0.25}
               linkLabel="label"
-              linkCanvasObjectMode={() => 'after'}
-              linkCanvasObject={(link, ctx) => {
-                const MAX_FONT_SIZE = 4;
-                if (!link.label) return;
-
-                const start = link.source;
-                const end = link.target;
-                if (typeof start !== 'object' || typeof end !== 'object') return;
-
-                const textPos = {
-                  x: start.x + (end.x - start.x) / 2,
-                  y: start.y + (end.y - start.y) / 2
-                };
-
-                const relLink = { x: end.x - start.x, y: end.y - start.y };
-                const maxTextLength = Math.sqrt(Math.pow(relLink.x, 2) + Math.pow(relLink.y, 2)) / 2;
-
-                let fontSize = Math.min(MAX_FONT_SIZE, maxTextLength / (link.label.length || 1));
-                ctx.font = `${fontSize}px Sans-Serif`;
-                const textWidth = ctx.measureText(link.label).width;
-                const bckgDimensions = [textWidth, fontSize].map(n => n + fontSize * 0.2);
-
-                ctx.save();
-                ctx.translate(textPos.x, textPos.y);
-                ctx.fillStyle = 'rgba(10, 10, 10, 0.8)';
-                ctx.fillRect(-bckgDimensions[0] / 2, -bckgDimensions[1] / 2, ...bckgDimensions);
-
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillStyle = '#a1a1aa';
-                ctx.fillText(link.label, 0, 0);
-                ctx.restore();
-              }}
+              linkCanvasObjectMode={() => "after"}
+              linkCanvasObject={renderEdgeLabel}
               width={800}
               height={500}
               cooldownTicks={100}
-              onEngineStop={() => graphRef.current.zoomToFit(400)}
+              onEngineStop={() => graphRef.current?.zoomToFit(400)}
             />
           </div>
         )}
 
-        {viewMode === 'steps' && (
+        {viewMode === VIEW_MODES.STEPS && (
           <div className="steps-section">
             <div className="section-header-flex">
-              <h3>Intelligent Workflow Narrative</h3>
-              <button onClick={copyNarrativeToClipboard} className="text-copy-btn">
+              <h3>Workflow Narrative</h3>
+              <button onClick={handleCopyNarrative} className="text-copy-btn">
                 Copy to Clipboard
               </button>
             </div>
@@ -182,10 +160,17 @@ export default function GraphView({ data }) {
             ) : (
               <div className="narrative-list">
                 {narrative.map((step, idx) => (
-                  <div key={idx} className={`narrative-item ${step.includes('↳') ? 'indent-branch' : ''}`}>
-                    <span className="step-marker">{step.startsWith('Step') ? step.split(':')[0] : '•'}</span>
+                  <div
+                    key={idx}
+                    className={`narrative-item ${step.includes("↳") ? "indent-branch" : ""}`}
+                  >
+                    <span className="step-marker">
+                      {step.startsWith("Step") ? step.split(":")[0] : "•"}
+                    </span>
                     <span className="step-content">
-                      {highlightText(step.includes(':') ? step.split(':').slice(1).join(':').trim() : step)}
+                      {highlightText(
+                        step.includes(":") ? step.split(":").slice(1).join(":").trim() : step
+                      )}
                     </span>
                   </div>
                 ))}
@@ -194,7 +179,7 @@ export default function GraphView({ data }) {
           </div>
         )}
 
-        {viewMode === 'nodes' && (
+        {viewMode === VIEW_MODES.NODES && (
           <div className="nodes-section">
             <h3>Detected Nodes ({nodes.length})</h3>
             {nodes.length === 0 ? (
@@ -202,25 +187,31 @@ export default function GraphView({ data }) {
             ) : (
               <div className="nodes-list">
                 {nodes.map((node, idx) => (
-                  <div
-                    key={idx}
-                    className={`node-item ${expandedNode === idx ? 'expanded' : ''}`}
-                  >
+                  <div key={idx} className={`node-item ${expandedNode === idx ? "expanded" : ""}`}>
                     <div
                       className="node-header"
                       onClick={() => setExpandedNode(expandedNode === idx ? null : idx)}
                       style={{ borderLeft: `4px solid ${getNodeColor(node)}` }}
                     >
-                      <span className="node-type-badge" style={{ backgroundColor: getNodeColor(node) }}>
+                      <span
+                        className="node-type-badge"
+                        style={{ backgroundColor: getNodeColor(node) }}
+                      >
                         {node.semantic_class || node.type}
                       </span>
                       <span className="node-id">{node.id}</span>
                       <span className="node-label-preview">{node.labels?.[0]}</span>
-                      <span className="expand-icon">
-                        {expandedNode === idx ? '▼' : '▶'}
-                      </span>
+                      <span className="expand-icon">{expandedNode === idx ? "▼" : "▶"}</span>
                     </div>
-                    {expandedNode === idx && renderNodeDetails(node)}
+                    {expandedNode === idx && (
+                      <div className="node-details">
+                        <p><strong>ID:</strong> {node.id}</p>
+                        <p><strong>Type:</strong> {node.type} ({node.semantic_class || "Unclassified"})</p>
+                        <p><strong>Labels:</strong> {node.labels?.join(", ") || "None"}</p>
+                        <p><strong>Confidence:</strong> {(node.confidence * 100).toFixed(1)}%</p>
+                        <p><strong>Location:</strong> ({node.center?.x}, {node.center?.y})</p>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -228,7 +219,7 @@ export default function GraphView({ data }) {
           </div>
         )}
 
-        {viewMode === 'edges' && (
+        {viewMode === VIEW_MODES.EDGES && (
           <div className="edges-section">
             <h3>Detected Edges ({edges.length})</h3>
             {edges.length === 0 ? (
@@ -240,7 +231,7 @@ export default function GraphView({ data }) {
                     <p>
                       <strong>{edge.source}</strong> → <strong>{edge.target}</strong>
                     </p>
-                    {edge.label && <p>Label: {edge.label}</p>}
+                    {edge.label && <p className="edge-label">Label: {edge.label}</p>}
                   </div>
                 ))}
               </div>
@@ -248,38 +239,41 @@ export default function GraphView({ data }) {
           </div>
         )}
 
-        {viewMode === 'raw' && (
+        {viewMode === VIEW_MODES.RAW && (
           <div className="raw-section">
-            <h3>Raw JSON Data</h3>
-            <pre className="json-display">
-              {JSON.stringify(data, null, 2)}
-            </pre>
+            <h3>Raw JSON Response</h3>
+            <pre className="json-display">{JSON.stringify(data, null, 2)}</pre>
           </div>
         )}
       </div>
 
-      {graphMetadata && (
+      {/* Metrics Panel */}
+      {metadata.node_count != null && (
         <div className="graph-metadata">
           <div className="metadata-header">
-            <h4>Accuracy Metrics & Logic</h4>
-            <span className="accuracy-badge">High Improvement</span>
+            <h4>Pipeline Metrics</h4>
+            <span className="accuracy-badge">Processed</span>
           </div>
           <div className="metrics-grid">
             <div className="metric-card">
               <span className="metric-label">Nodes Detected</span>
-              <span className="metric-value">{graphMetadata.node_count}</span>
+              <span className="metric-value">{metadata.node_count}</span>
+            </div>
+            <div className="metric-card">
+              <span className="metric-label">Edges Detected</span>
+              <span className="metric-value">{metadata.edge_count}</span>
             </div>
             <div className="metric-card highlight">
               <span className="metric-label">Noise Reduction</span>
-              <span className="metric-value">{graphMetadata.node_reduction_pct}%</span>
+              <span className="metric-value">{metadata.node_reduction_pct}%</span>
             </div>
           </div>
 
-          {graphMetadata.sanity_violations && graphMetadata.sanity_violations.length > 0 && (
+          {metadata.sanity_violations?.length > 0 && (
             <div className="sanity-check-area">
-              <h5 className="warning-title">⚠️ Logic Sanity Warnings</h5>
+              <h5 className="warning-title">⚠️ Logic Warnings</h5>
               <ul className="violations-list">
-                {graphMetadata.sanity_violations.map((v, i) => (
+                {metadata.sanity_violations.map((v, i) => (
                   <li key={i}>{v}</li>
                 ))}
               </ul>
