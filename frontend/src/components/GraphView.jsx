@@ -139,11 +139,10 @@ export default function GraphView({ data }) {
               linkWidth={1.5}
               linkCanvasObjectMode={() => "after"}
               linkCanvasObject={renderEdgeLabel}
-              width={750}
-              height={500}
+              height={460}
               cooldownTicks={100}
               onEngineStop={() => graphRef.current?.zoomToFit(400)}
-              backgroundColor="#efefed"
+              backgroundColor="#f7f7f5"
             />
           </div>
         )}

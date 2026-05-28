@@ -1,36 +1,28 @@
 /**
  * App — Root Application Component
  *
- * Sana-inspired light theme with polished glass aesthetic.
- * High-contrast typography, clean white canvas, minimal elevation.
+ * Minimal, industry-standard layout with clean navigation,
+ * responsive grid, and polished content sections.
  */
 
-import React, { useState } from "react";
+import { useState } from "react";
 import {
-  Activity,
-  ShieldCheck,
-  ServerCrash,
-  RefreshCcw,
-  Layout,
-  FileSearch,
   Scan,
   Brain,
   GitBranch,
   FileText,
   Layers,
   Workflow,
-  Zap,
+  RefreshCcw,
+  Github,
 } from "lucide-react";
 import Upload from "./components/Upload";
 import GraphView from "./components/GraphView";
-import { useApiStatus } from "./hooks/useApiStatus";
-import { API_STATUS } from "./constants";
 import "./App.css";
 
 function App() {
   const [analysisResult, setAnalysisResult] = useState(null);
   const [resetCounter, setResetCounter] = useState(0);
-  const apiStatus = useApiStatus();
 
   const handleUploadSuccess = (data) => {
     setAnalysisResult(data);
@@ -43,38 +35,35 @@ function App() {
 
   return (
     <div className="app-shell">
-      {/* Navigation */}
+      {/* Navigation — minimal, Stripe/Linear style */}
       <header className="main-nav">
         <div className="nav-content">
-          <div className="brand">
-            <Activity size={22} aria-hidden="true" />
-            <div>
-              <h1>NodeDetect</h1>
-              <p className="brand-tagline">Diagram Intelligence</p>
-            </div>
-          </div>
-
-          <div className={`status-pill ${apiStatus}`} aria-live="polite">
-            <span className="status-indicator">
-              {apiStatus === API_STATUS.CONNECTED && <ShieldCheck size={14} />}
-              {apiStatus === API_STATUS.CHECKING && <RefreshCcw size={14} className="spin" />}
-              {apiStatus === API_STATUS.DISCONNECTED && <ServerCrash size={14} />}
-            </span>
-            <span className="status-text">
-              {apiStatus === API_STATUS.CONNECTED && "System Online"}
-              {apiStatus === API_STATUS.CHECKING && "Connecting..."}
-              {apiStatus === API_STATUS.DISCONNECTED && "Offline"}
-            </span>
-          </div>
+          <a href="/" className="nav-brand">
+            <span className="nav-logo">⬡</span>
+            <span className="nav-title">NodeDetect</span>
+          </a>
+          <nav className="nav-links">
+            <a href="#features" className="nav-link">How it works</a>
+            <a href="#pipeline" className="nav-link">Pipeline</a>
+            <a
+              href="https://github.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="nav-link nav-link-icon"
+              aria-label="GitHub"
+            >
+              <Github size={18} />
+            </a>
+          </nav>
         </div>
       </header>
 
       {/* Hero */}
       <section className="hero-section">
-        <h2 className="hero-title">Intelligent Node Detection</h2>
+        <h1 className="hero-title">Intelligent Node Detection</h1>
         <p className="hero-subtitle">
-          Transform any diagram into a structured graph with semantic
-          classification, edge detection, and workflow narrative generation.
+          Transform any diagram into a structured directed graph with semantic
+          classification and workflow narrative generation.
         </p>
       </section>
 
@@ -84,11 +73,8 @@ function App() {
           {/* Left: Upload Panel */}
           <aside className="tool-panel">
             <div className="panel-header">
-              <div className="header-with-icon">
-                <FileSearch size={18} aria-hidden="true" />
-                <h3>Upload Diagram</h3>
-              </div>
-              <p>Drop a flowchart, architecture diagram, or hand-drawn sketch</p>
+              <h3>Upload Diagram</h3>
+              <p>Flowchart, architecture diagram, or hand-drawn sketch</p>
             </div>
             <Upload key={resetCounter} onUploadSuccess={handleUploadSuccess} />
           </aside>
@@ -98,28 +84,25 @@ function App() {
             {analysisResult ? (
               <div className="result-container">
                 <div className="viewport-header">
-                  <div className="header-with-icon">
-                    <Layout size={18} aria-hidden="true" />
-                    <h3>Analysis Results</h3>
-                  </div>
+                  <h3>Analysis Results</h3>
                   <button onClick={handleReset} className="ghost-btn">
-                    <RefreshCcw size={14} aria-hidden="true" /> New Analysis
+                    <RefreshCcw size={14} aria-hidden="true" /> New
                   </button>
                 </div>
                 <GraphView data={analysisResult} />
               </div>
             ) : (
               <div className="empty-state">
-                <Layout size={44} strokeWidth={1} aria-hidden="true" />
+                <div className="empty-icon">⬡</div>
                 <h3>Ready for Analysis</h3>
-                <p>Upload a diagram image to extract its graph structure</p>
+                <p>Upload a diagram to extract its graph structure</p>
               </div>
             )}
           </section>
         </div>
 
         {/* Features Section */}
-        <section className="features-section">
+        <section className="features-section" id="features">
           <div className="features-header">
             <h2>How It Works</h2>
             <p>A 7-stage computer vision pipeline powered by OpenCV and NetworkX</p>
@@ -159,80 +142,40 @@ function App() {
         </section>
 
         {/* Pipeline Steps */}
-        <section className="pipeline-section">
+        <section className="pipeline-section" id="pipeline">
           <h2>Processing Pipeline</h2>
           <div className="pipeline-steps">
-            <div className="pipeline-step">
-              <span className="pipeline-step-number">1</span>
-              <div className="pipeline-step-content">
-                <h4>Preprocessing</h4>
-                <p>Resize → Grayscale → Gaussian blur → Adaptive threshold → Morphological closing</p>
+            {[
+              { title: "Preprocessing", desc: "Resize → Grayscale → Gaussian blur → Adaptive threshold → Morphological closing" },
+              { title: "Node Detection", desc: "Find contours, classify shapes by circularity and vertex count" },
+              { title: "Text Extraction", desc: "OCR with 2x upscaling and Otsu binarization for small diagram labels" },
+              { title: "Merging & Grouping", desc: "Proximity-based clustering consolidates fragmented contours into logical nodes" },
+              { title: "Classification", desc: "Shape + text + NLP assigns semantic meaning (start, process, decision, end)" },
+              { title: "Edge Mapping", desc: "Hough lines clustered and mapped to nearest node boundaries" },
+              { title: "Graph Construction", desc: "NetworkX DiGraph with sanity validation and BFS narrative generation" },
+            ].map((step, idx) => (
+              <div className="pipeline-step" key={idx}>
+                <span className="pipeline-step-number">{idx + 1}</span>
+                <div className="pipeline-step-content">
+                  <h4>{step.title}</h4>
+                  <p>{step.desc}</p>
+                </div>
               </div>
-            </div>
-            <div className="pipeline-step">
-              <span className="pipeline-step-number">2</span>
-              <div className="pipeline-step-content">
-                <h4>Node Detection</h4>
-                <p>Find contours, classify shapes by circularity and vertex count</p>
-              </div>
-            </div>
-            <div className="pipeline-step">
-              <span className="pipeline-step-number">3</span>
-              <div className="pipeline-step-content">
-                <h4>Text Extraction</h4>
-                <p>OCR with 2x upscaling and Otsu binarization for small diagram labels</p>
-              </div>
-            </div>
-            <div className="pipeline-step">
-              <span className="pipeline-step-number">4</span>
-              <div className="pipeline-step-content">
-                <h4>Merging & Grouping</h4>
-                <p>Proximity-based clustering consolidates fragmented contours into logical nodes</p>
-              </div>
-            </div>
-            <div className="pipeline-step">
-              <span className="pipeline-step-number">5</span>
-              <div className="pipeline-step-content">
-                <h4>Classification</h4>
-                <p>Shape + text + NLP assigns semantic meaning (start, process, decision, end)</p>
-              </div>
-            </div>
-            <div className="pipeline-step">
-              <span className="pipeline-step-number">6</span>
-              <div className="pipeline-step-content">
-                <h4>Edge Mapping</h4>
-                <p>Hough lines clustered and mapped to nearest node boundaries</p>
-              </div>
-            </div>
-            <div className="pipeline-step">
-              <span className="pipeline-step-number">7</span>
-              <div className="pipeline-step-content">
-                <h4>Graph Construction</h4>
-                <p>NetworkX DiGraph with sanity validation and BFS narrative generation</p>
-              </div>
-            </div>
+            ))}
           </div>
         </section>
 
         {/* Tech Stack */}
         <div className="tech-badges">
-          <span className="tech-badge">FastAPI</span>
-          <span className="tech-badge">OpenCV</span>
-          <span className="tech-badge">Tesseract OCR</span>
-          <span className="tech-badge">NetworkX</span>
-          <span className="tech-badge">spaCy</span>
-          <span className="tech-badge">React 18</span>
-          <span className="tech-badge">Vite</span>
-          <span className="tech-badge">Docker</span>
+          {["FastAPI", "OpenCV", "Tesseract OCR", "NetworkX", "spaCy", "React 18", "Vite", "Docker"].map((t) => (
+            <span className="tech-badge" key={t}>{t}</span>
+          ))}
         </div>
       </main>
 
       {/* Footer */}
       <footer className="main-footer">
-        <p>
-          © {new Date().getFullYear()} Intelligent Node Detection •{" "}
-          <span className="version">v1.0</span> • Built by Kaif
-        </p>
+        <p>© {new Date().getFullYear()} Intelligent Node Detection · Built by Kaif</p>
       </footer>
     </div>
   );
