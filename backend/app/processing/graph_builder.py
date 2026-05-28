@@ -1,14 +1,13 @@
 """
 Graph construction and analysis service.
 
-Builds a NetworkX directed graph from classified nodes and edges,
-then performs structural analysis including:
     - Sanity rule validation (flowchart logic correctness)
-    - Workflow narrative generation (BFS-based step descriptions)
+    - Workflow narrative generation (BFS-based, using display names)
     - Accuracy metrics computation
 """
 
 from typing import List, Dict, Any
+from collections import deque
 
 import networkx as nx
 
@@ -19,8 +18,8 @@ class GraphBuilder:
     """
     Constructs and analyzes directed graphs from diagram elements.
 
-    Maintains both a raw detection graph (all elements) and a logical
-    graph (validated, classified elements) for comparison metrics.
+    Uses semantic node IDs and display names for all output, ensuring
+    the graph is human-readable in API responses, exports, and narratives.
     """
 
     def __init__(self):
@@ -38,18 +37,28 @@ class GraphBuilder:
         Build the complete graph structure from pipeline outputs.
 
         Args:
-            elements: Classified logical nodes.
-            edges: Detected logical edges.
+            elements: Named, classified logical nodes (with 'id', 'display_name', 'sequence').
+            edges: Detected logical edges (source/target use OLD IDs from edge detector).
             raw_nodes_count: Total raw contours before filtering.
             raw_edges_count: Total raw line segments before filtering.
 
         Returns:
-            Complete graph data with nodes, edges, metadata, and narrative.
+            Complete graph data with semantic nodes, edges, metadata, and narrative.
         """
         self._graph = nx.DiGraph()
         self._nodes_data = {}
 
-        # Populate graph nodes
+        # Build an ID mapping: old logical_node_X → new semantic ID
+        # The edge detector uses the old IDs, so we need to remap
+        old_to_new = {}
+        for element in elements:
+            old_id = element.get("_original_id") or element.get("id")
+            new_id = element.get("id", old_id)
+            old_to_new[old_id] = new_id
+            # Also map new to new (in case edges already use new IDs)
+            old_to_new[new_id] = new_id
+
+        # Populate graph nodes with semantic IDs
         nodes_output = []
         for element in elements:
             node_id = element.get("id")
@@ -60,35 +69,49 @@ class GraphBuilder:
             self._graph.add_node(
                 node_id,
                 type=element.get("semantic_class", "unknown"),
+                display_name=element.get("display_name", node_id),
                 labels=element.get("labels", []),
                 bbox=element.get("bbox"),
                 shape_type=element.get("type"),
                 confidence=element.get("confidence", 0.0),
+                sequence=element.get("sequence", 0),
             )
 
             nodes_output.append({
                 "id": node_id,
+                "display_name": element.get("display_name", node_id),
                 "label": " ".join(element.get("labels", [])),
                 "type": element.get("semantic_class", "unknown"),
                 "shape": element.get("type"),
                 "bbox": element.get("bbox"),
+                "center": element.get("center"),
                 "confidence": element.get("confidence", 0.0),
+                "sequence": element.get("sequence", 0),
+                "labels": element.get("labels", []),
             })
 
-        # Populate graph edges
+        # Populate graph edges, remapping old IDs to semantic IDs
         edges_output = []
         for edge in edges:
-            source, target = edge.get("source"), edge.get("target")
+            raw_source = edge.get("source", "")
+            raw_target = edge.get("target", "")
+
+            source = old_to_new.get(raw_source, raw_source)
+            target = old_to_new.get(raw_target, raw_target)
+
             if source and target and source in self._graph and target in self._graph:
+                label = edge.get("label", "")
                 self._graph.add_edge(
                     source, target,
-                    label=edge.get("label", ""),
+                    label=label,
+                    condition=label.upper() if label else "",
                     direction=edge.get("direction", "->"),
                 )
                 edges_output.append({
                     "source": source,
                     "target": target,
-                    "label": edge.get("label", ""),
+                    "label": label,
+                    "condition": label.upper() if label else "",
                     "direction": edge.get("direction", "->"),
                 })
 
@@ -123,7 +146,7 @@ class GraphBuilder:
         return {
             "raw_graph": {"nodes": raw_nodes_count, "edges": raw_edges_count},
             "logical_graph": logical_graph,
-            "graph": logical_graph,  # Backward compatibility
+            "graph": logical_graph,
         }
 
     def _check_sanity_rules(self) -> List[str]:
@@ -142,16 +165,17 @@ class GraphBuilder:
         for node_id in self._graph.nodes():
             node_data = self._graph.nodes[node_id]
             node_type = node_data.get("type")
+            display = node_data.get("display_name", node_id)
             in_degree = self._graph.in_degree(node_id)
             out_degree = self._graph.out_degree(node_id)
 
             if node_type == "start" and in_degree > 0:
-                violations.append(f"Start node '{node_id}' has incoming edges")
+                violations.append(f"Start node '{display}' has incoming edges")
             if node_type == "end" and out_degree > 0:
-                violations.append(f"End node '{node_id}' has outgoing edges")
+                violations.append(f"End node '{display}' has outgoing edges")
             if node_type == "decision" and out_degree < 2:
                 violations.append(
-                    f"Decision node '{node_id}' has only {out_degree} outgoing edge(s)"
+                    f"Decision node '{display}' has only {out_degree} outgoing edge(s)"
                 )
 
         return violations
@@ -160,20 +184,19 @@ class GraphBuilder:
         """
         Generate a human-readable workflow narrative via BFS traversal.
 
-        Starts from nodes with in-degree 0 (entry points) and traverses
-        the graph in breadth-first order, producing step-by-step
-        descriptions of the flowchart logic.
+        Uses display_name for readable output and semantic class for
+        contextual step descriptions. Produces natural-language steps
+        that describe the workflow logic.
         """
         if not self._graph or self._graph.number_of_nodes() == 0:
             return []
 
         start_nodes = self._find_start_nodes()
         if not start_nodes:
-            # Fallback: use first node if no clear entry point
             start_nodes = [list(self._graph.nodes())[0]]
 
         visited = set()
-        queue = []
+        queue = deque()
         for node_id in start_nodes:
             queue.append(node_id)
             visited.add(node_id)
@@ -182,38 +205,55 @@ class GraphBuilder:
         step_idx = 1
 
         while queue:
-            node_id = queue.pop(0)
+            node_id = queue.popleft()
             node_data = self._nodes_data.get(node_id)
             if not node_data:
                 continue
 
-            label = " ".join(node_data.get("labels", [])) or f"Step {node_id}"
+            display_name = node_data.get("display_name", node_id)
             sem_class = node_data.get("semantic_class", "process").lower()
 
-            # Generate contextual step description
-            prefix = f"Step {step_idx}: "
-            if sem_class == "start":
-                narrative.append(f"{prefix}Start the process: {label}")
-            elif sem_class == "end":
-                narrative.append(f"{prefix}End of process: {label}")
-            elif sem_class == "decision":
-                narrative.append(f"{prefix}Decision point: {label}")
-            else:
-                narrative.append(f"{prefix}Perform action: {label}")
-
+            # Generate contextual step description using display names
+            step = self._format_narrative_step(step_idx, sem_class, display_name)
+            narrative.append(step)
             step_idx += 1
 
             # Add branching annotations for decision nodes
             for _, target, data in self._graph.out_edges(node_id, data=True):
                 edge_label = data.get("label", "")
                 if sem_class == "decision" and edge_label:
-                    narrative.append(f"   ↳ If {edge_label}, proceed to {target}")
+                    target_data = self._nodes_data.get(target, {})
+                    target_display = target_data.get("display_name", target)
+                    narrative.append(
+                        f"   ↳ If {edge_label.upper()}, proceed to: {target_display}"
+                    )
 
                 if target not in visited:
                     visited.add(target)
                     queue.append(target)
 
         return narrative
+
+    def _format_narrative_step(
+        self, step_num: int, sem_class: str, display_name: str
+    ) -> str:
+        """
+        Format a single narrative step with contextual language.
+
+        Uses the semantic class to choose appropriate action verbs
+        that make the narrative read naturally.
+        """
+        templates = {
+            "start": f"Step {step_num}: Begin the workflow — {display_name}",
+            "end": f"Step {step_num}: End of workflow — {display_name}",
+            "decision": f"Step {step_num}: Check condition — {display_name}",
+            "input": f"Step {step_num}: Read input — {display_name}",
+            "output": f"Step {step_num}: Produce output — {display_name}",
+            "data": f"Step {step_num}: Access data — {display_name}",
+            "database": f"Step {step_num}: Database operation — {display_name}",
+            "process": f"Step {step_num}: Execute — {display_name}",
+        }
+        return templates.get(sem_class, f"Step {step_num}: {display_name}")
 
     def _find_start_nodes(self) -> List[str]:
         """Find nodes with no incoming edges (graph entry points)."""

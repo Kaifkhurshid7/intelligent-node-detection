@@ -21,6 +21,7 @@ from app.processing.node_processor import NodeProcessor
 from app.processing.edge_detector import EdgeDetector
 from app.processing.ocr_engine import OCREngine
 from app.processing.classifier import Classifier
+from app.processing.node_namer import NodeNamer
 from app.processing.graph_builder import GraphBuilder
 
 
@@ -49,6 +50,7 @@ class AnalysisPipeline:
         self._edge_detector = EdgeDetector()
         self._ocr_engine = OCREngine()
         self._classifier = Classifier()
+        self._node_namer = NodeNamer()
         self._graph_builder = GraphBuilder()
 
     @property
@@ -113,9 +115,14 @@ class AnalysisPipeline:
         classified_nodes = self._classifier.classify(logical_nodes, text_elements)
         timings["classification_ms"] = _elapsed_ms(t0)
 
+        # Stage 5.5: Semantic node naming (replaces generic logical_node_X IDs)
+        t0 = time.perf_counter()
+        named_nodes = self._node_namer.name_nodes(classified_nodes)
+        timings["naming_ms"] = _elapsed_ms(t0)
+
         # Stage 6: Filter noise and separate edge labels
         t0 = time.perf_counter()
-        final_nodes, edge_labels = self._filter_nodes(classified_nodes)
+        final_nodes, edge_labels = self._filter_nodes(named_nodes)
         timings["filtering_ms"] = _elapsed_ms(t0)
 
         # Stage 7: Detect logical edges between nodes

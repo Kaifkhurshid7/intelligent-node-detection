@@ -505,6 +505,10 @@ body {
 .violations-list li { font-size: 14px; color: var(--color-muted); padding: 6px 0; border-bottom: 1px solid var(--color-border); }
 .violations-list li:last-child { border-bottom: none; }
 
+.raw-comparison { margin-top: 16px; font-size: 13px; color: var(--color-muted); }
+.raw-comparison p { margin: 4px 0; }
+.raw-comparison strong { color: var(--color-midnight); }
+
 /* Timings */
 .timings-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--color-border); }
 .timings-title { font-size: 14px; font-weight: 600; margin: 0 0 12px 0; }
