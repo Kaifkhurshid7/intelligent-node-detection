@@ -1,8 +1,16 @@
 FROM python:3.11-slim
 
-# Install Tesseract OCR system dependency
+# Install system dependencies:
+# - libgl1: OpenGL library required by OpenCV
+# - libglib2.0-0: GLib library required by OpenCV
+# - tesseract-ocr: OCR engine for text extraction
+# - curl: for health checks
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends tesseract-ocr curl && \
+    apt-get install -y --no-install-recommends \
+        libgl1 \
+        libglib2.0-0 \
+        tesseract-ocr \
+        curl && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
