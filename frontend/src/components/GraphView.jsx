@@ -1,14 +1,13 @@
 /**
  * GraphView Component
  *
- * Multi-tab visualization of the analysis results:
- *   - Force-directed graph (interactive 2D)
- *   - Logical steps narrative
- *   - Node list with expandable details
- *   - Edge list
- *   - Raw JSON inspector
- *
- * Also displays accuracy metrics and sanity violation warnings.
+ * Multi-tab visualization of analysis results with:
+ *   - Interactive force-directed graph
+ *   - Workflow narrative with keyword highlighting
+ *   - Expandable node inspector
+ *   - Edge connection list
+ *   - Raw JSON data viewer
+ *   - Pipeline metrics dashboard
  */
 
 import React, { useState, useRef } from "react";
@@ -19,22 +18,20 @@ import { getNodeColor, copyToClipboard } from "../utils/helpers";
 export default function GraphView({ data }) {
   const [expandedNode, setExpandedNode] = useState(null);
   const [viewMode, setViewMode] = useState(VIEW_MODES.GRAPH);
+  const [copySuccess, setCopySuccess] = useState(false);
   const graphRef = useRef();
 
   if (!data) {
-    return (
-      <div className="graph-view">
-        <p className="no-data">No data to display. Upload an image first.</p>
-      </div>
-    );
+    return <p className="no-items">No data to display.</p>;
   }
 
   const nodes = data.nodes || [];
   const edges = data.edges || [];
   const narrative = data.logical_graph?.narrative || [];
   const metadata = data.graph?.metadata || {};
+  const rawGraph = data.raw_graph || {};
 
-  // Transform data for the force-graph library
+  // Prepare force-graph data
   const graphData = {
     nodes: nodes.map((node) => ({
       id: node.id,
@@ -49,7 +46,7 @@ export default function GraphView({ data }) {
     })),
   };
 
-  /** Render edge labels on the canvas between connected nodes. */
+  /** Render edge labels on the force-graph canvas. */
   const renderEdgeLabel = (link, ctx) => {
     if (!link.label) return;
     const start = link.source;
@@ -61,21 +58,19 @@ export default function GraphView({ data }) {
     const fontSize = 4;
 
     ctx.save();
-    ctx.font = `${fontSize}px Sans-Serif`;
+    ctx.font = `${fontSize}px Inter, sans-serif`;
     const textWidth = ctx.measureText(link.label).width;
-    const padding = fontSize * 0.2;
+    const pad = fontSize * 0.3;
 
     ctx.translate(midX, midY);
-    ctx.fillStyle = "rgba(10, 10, 10, 0.8)";
-    ctx.fillRect(
-      -(textWidth + padding) / 2,
-      -(fontSize + padding) / 2,
-      textWidth + padding,
-      fontSize + padding
-    );
+    ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+    ctx.fillRect(-(textWidth + pad) / 2, -(fontSize + pad) / 2, textWidth + pad, fontSize + pad);
+    ctx.strokeStyle = "#d9d9d9";
+    ctx.lineWidth = 0.3;
+    ctx.strokeRect(-(textWidth + pad) / 2, -(fontSize + pad) / 2, textWidth + pad, fontSize + pad);
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillStyle = "#a1a1aa";
+    ctx.fillStyle = "#090909";
     ctx.fillText(link.label, 0, 0);
     ctx.restore();
   };
@@ -94,23 +89,26 @@ export default function GraphView({ data }) {
     return <span dangerouslySetInnerHTML={{ __html: highlighted }} />;
   };
 
-  const handleCopyNarrative = () => {
-    copyToClipboard(narrative.join("\n"));
+  const handleCopyNarrative = async () => {
+    const success = await copyToClipboard(narrative.join("\n"));
+    if (success) {
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    }
   };
 
-  // Tab button configuration
   const tabs = [
-    { id: VIEW_MODES.GRAPH, label: "Graph Visual" },
-    { id: VIEW_MODES.STEPS, label: "Logical Steps" },
+    { id: VIEW_MODES.GRAPH, label: "Graph" },
+    { id: VIEW_MODES.STEPS, label: "Narrative" },
     { id: VIEW_MODES.NODES, label: `Nodes (${nodes.length})` },
     { id: VIEW_MODES.EDGES, label: `Edges (${edges.length})` },
-    { id: VIEW_MODES.RAW, label: "Raw Data" },
+    { id: VIEW_MODES.RAW, label: "JSON" },
   ];
 
   return (
     <div className="graph-view-container">
       {/* Tab Navigation */}
-      <nav className="view-controls" aria-label="View mode tabs">
+      <nav className="view-controls" aria-label="Result view tabs">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -133,16 +131,18 @@ export default function GraphView({ data }) {
               nodeLabel="label"
               nodeColor={getNodeColor}
               nodeRelSize={6}
-              linkDirectionalArrowLength={3.5}
+              linkDirectionalArrowLength={4}
               linkDirectionalArrowRelPos={1}
-              linkCurvature={0.25}
-              linkLabel="label"
+              linkCurvature={0.2}
+              linkColor={() => "#090909"}
+              linkWidth={1.5}
               linkCanvasObjectMode={() => "after"}
               linkCanvasObject={renderEdgeLabel}
-              width={800}
+              width={750}
               height={500}
               cooldownTicks={100}
               onEngineStop={() => graphRef.current?.zoomToFit(400)}
+              backgroundColor="#efefed"
             />
           </div>
         )}
@@ -152,11 +152,11 @@ export default function GraphView({ data }) {
             <div className="section-header-flex">
               <h3>Workflow Narrative</h3>
               <button onClick={handleCopyNarrative} className="text-copy-btn">
-                Copy to Clipboard
+                {copySuccess ? "✓ Copied" : "Copy"}
               </button>
             </div>
             {narrative.length === 0 ? (
-              <p className="no-items">No logic could be interpreted from this graph.</p>
+              <p className="no-items">No logic could be interpreted from this diagram.</p>
             ) : (
               <div className="narrative-list">
                 {narrative.map((step, idx) => (
@@ -181,7 +181,7 @@ export default function GraphView({ data }) {
 
         {viewMode === VIEW_MODES.NODES && (
           <div className="nodes-section">
-            <h3>Detected Nodes ({nodes.length})</h3>
+            <h3>Detected Nodes</h3>
             {nodes.length === 0 ? (
               <p className="no-items">No nodes detected</p>
             ) : (
@@ -193,23 +193,23 @@ export default function GraphView({ data }) {
                       onClick={() => setExpandedNode(expandedNode === idx ? null : idx)}
                       style={{ borderLeft: `4px solid ${getNodeColor(node)}` }}
                     >
-                      <span
-                        className="node-type-badge"
-                        style={{ backgroundColor: getNodeColor(node) }}
-                      >
+                      <span className="node-type-badge" style={{ backgroundColor: getNodeColor(node) }}>
                         {node.semantic_class || node.type}
                       </span>
                       <span className="node-id">{node.id}</span>
-                      <span className="node-label-preview">{node.labels?.[0]}</span>
+                      <span className="node-label-preview">
+                        {node.labels?.join(", ") || "—"}
+                      </span>
                       <span className="expand-icon">{expandedNode === idx ? "▼" : "▶"}</span>
                     </div>
                     {expandedNode === idx && (
                       <div className="node-details">
-                        <p><strong>ID:</strong> {node.id}</p>
-                        <p><strong>Type:</strong> {node.type} ({node.semantic_class || "Unclassified"})</p>
+                        <p><strong>Shape:</strong> {node.type}</p>
+                        <p><strong>Semantic Class:</strong> {node.semantic_class || "Unclassified"}</p>
                         <p><strong>Labels:</strong> {node.labels?.join(", ") || "None"}</p>
                         <p><strong>Confidence:</strong> {(node.confidence * 100).toFixed(1)}%</p>
-                        <p><strong>Location:</strong> ({node.center?.x}, {node.center?.y})</p>
+                        <p><strong>Position:</strong> ({node.center?.x}, {node.center?.y})</p>
+                        <p><strong>Bounding Box:</strong> {node.bbox?.w}×{node.bbox?.h}px</p>
                       </div>
                     )}
                   </div>
@@ -221,7 +221,7 @@ export default function GraphView({ data }) {
 
         {viewMode === VIEW_MODES.EDGES && (
           <div className="edges-section">
-            <h3>Detected Edges ({edges.length})</h3>
+            <h3>Detected Edges</h3>
             {edges.length === 0 ? (
               <p className="no-items">No edges detected</p>
             ) : (
@@ -231,7 +231,7 @@ export default function GraphView({ data }) {
                     <p>
                       <strong>{edge.source}</strong> → <strong>{edge.target}</strong>
                     </p>
-                    {edge.label && <p className="edge-label">Label: {edge.label}</p>}
+                    {edge.label && <p className="edge-label">Label: "{edge.label}"</p>}
                   </div>
                 ))}
               </div>
@@ -241,13 +241,13 @@ export default function GraphView({ data }) {
 
         {viewMode === VIEW_MODES.RAW && (
           <div className="raw-section">
-            <h3>Raw JSON Response</h3>
+            <h3>Raw API Response</h3>
             <pre className="json-display">{JSON.stringify(data, null, 2)}</pre>
           </div>
         )}
       </div>
 
-      {/* Metrics Panel */}
+      {/* Metrics Dashboard */}
       {metadata.node_count != null && (
         <div className="graph-metadata">
           <div className="metadata-header">
@@ -256,11 +256,11 @@ export default function GraphView({ data }) {
           </div>
           <div className="metrics-grid">
             <div className="metric-card">
-              <span className="metric-label">Nodes Detected</span>
+              <span className="metric-label">Logical Nodes</span>
               <span className="metric-value">{metadata.node_count}</span>
             </div>
             <div className="metric-card">
-              <span className="metric-label">Edges Detected</span>
+              <span className="metric-label">Logical Edges</span>
               <span className="metric-value">{metadata.edge_count}</span>
             </div>
             <div className="metric-card highlight">
@@ -269,9 +269,23 @@ export default function GraphView({ data }) {
             </div>
           </div>
 
+          {/* Raw vs Logical comparison */}
+          {rawGraph.nodes && (
+            <div style={{ marginTop: "var(--spacing-16)", fontSize: "13px", color: "var(--color-muted-text)" }}>
+              <p style={{ margin: "4px 0" }}>
+                Raw contours: <strong style={{ color: "#090909" }}>{rawGraph.nodes}</strong> →
+                Logical nodes: <strong style={{ color: "#090909" }}>{metadata.node_count}</strong>
+              </p>
+              <p style={{ margin: "4px 0" }}>
+                Raw segments: <strong style={{ color: "#090909" }}>{rawGraph.edges}</strong> →
+                Logical edges: <strong style={{ color: "#090909" }}>{metadata.edge_count}</strong>
+              </p>
+            </div>
+          )}
+
           {metadata.sanity_violations?.length > 0 && (
             <div className="sanity-check-area">
-              <h5 className="warning-title">⚠️ Logic Warnings</h5>
+              <h5 className="warning-title">⚠ Logic Sanity Warnings</h5>
               <ul className="violations-list">
                 {metadata.sanity_violations.map((v, i) => (
                   <li key={i}>{v}</li>

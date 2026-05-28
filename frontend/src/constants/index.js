@@ -1,18 +1,18 @@
 /**
  * Application-wide constants.
  *
- * Centralizes magic values, color mappings, and configuration
- * to avoid scattered hardcoded values across components.
+ * Centralizes color mappings, status values, and configuration
+ * to maintain consistency across all components.
  */
 
 /** Semantic node type → display color mapping */
 export const NODE_COLORS = {
-  start: "#4CAF50",
-  end: "#f44336",
-  process: "#2196F3",
-  decision: "#FF9800",
-  data: "#9C27B0",
-  unknown: "#607D8B",
+  start: "#00a870",
+  end: "#dc2626",
+  process: "#0057f3",
+  decision: "#ff5102",
+  data: "#7c3aed",
+  unknown: "#6b6b6b",
 };
 
 /** API connection status values */
