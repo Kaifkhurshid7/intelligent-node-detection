@@ -934,3 +934,65 @@ body {
   border-radius: var(--radius-full);
   background: var(--color-canvas-white);
 }
+
+
+/* =============================================================================
+   Pipeline Timings
+   ============================================================================= */
+
+.timings-section {
+  margin-top: var(--spacing-24);
+  padding-top: var(--spacing-24);
+  border-top: 1px solid var(--color-sterling-gray);
+}
+
+.timings-title {
+  font-size: var(--text-caption);
+  font-weight: 600;
+  margin: 0 0 var(--spacing-16) 0;
+  color: var(--color-midnight-ink);
+}
+
+.timings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-8);
+}
+
+@media (max-width: 640px) {
+  .timings-grid { grid-template-columns: 1fr; }
+}
+
+.timing-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-8) var(--spacing-12);
+  background: var(--color-canvas-white);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-sterling-gray);
+}
+
+.timing-item.timing-total {
+  grid-column: 1 / -1;
+  background: var(--color-abyssal-black);
+  border-color: var(--color-abyssal-black);
+}
+
+.timing-item.timing-total .timing-label,
+.timing-item.timing-total .timing-value {
+  color: var(--color-canvas-white);
+  font-weight: 600;
+}
+
+.timing-label {
+  font-size: 13px;
+  color: var(--color-muted-text);
+}
+
+.timing-value {
+  font-size: 13px;
+  font-weight: 500;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  color: var(--color-midnight-ink);
+}

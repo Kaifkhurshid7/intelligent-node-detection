@@ -10,7 +10,7 @@
  *   - Pipeline metrics dashboard
  */
 
-import React, { useState, useRef } from "react";
+import { useState, useRef } from "react";
 import ForceGraph2D from "react-force-graph-2d";
 import { VIEW_MODES } from "../constants";
 import { getNodeColor, copyToClipboard } from "../utils/helpers";
@@ -30,6 +30,7 @@ export default function GraphView({ data }) {
   const narrative = data.logical_graph?.narrative || [];
   const metadata = data.graph?.metadata || {};
   const rawGraph = data.raw_graph || {};
+  const timings = data.timings || null;
 
   // Prepare force-graph data
   const graphData = {
@@ -291,6 +292,47 @@ export default function GraphView({ data }) {
                   <li key={i}>{v}</li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {/* Pipeline Performance Timings */}
+          {timings && (
+            <div className="timings-section">
+              <h5 className="timings-title">⚡ Pipeline Performance</h5>
+              <div className="timings-grid">
+                <div className="timing-item">
+                  <span className="timing-label">Preprocessing</span>
+                  <span className="timing-value">{timings.preprocessing_ms}ms</span>
+                </div>
+                <div className="timing-item">
+                  <span className="timing-label">Detection</span>
+                  <span className="timing-value">{timings.detection_ms}ms</span>
+                </div>
+                <div className="timing-item">
+                  <span className="timing-label">OCR</span>
+                  <span className="timing-value">{timings.ocr_ms}ms</span>
+                </div>
+                <div className="timing-item">
+                  <span className="timing-label">Merging</span>
+                  <span className="timing-value">{timings.merging_ms}ms</span>
+                </div>
+                <div className="timing-item">
+                  <span className="timing-label">Classification</span>
+                  <span className="timing-value">{timings.classification_ms}ms</span>
+                </div>
+                <div className="timing-item">
+                  <span className="timing-label">Edge Detection</span>
+                  <span className="timing-value">{timings.edge_detection_ms}ms</span>
+                </div>
+                <div className="timing-item">
+                  <span className="timing-label">Graph Build</span>
+                  <span className="timing-value">{timings.graph_construction_ms}ms</span>
+                </div>
+                <div className="timing-item timing-total">
+                  <span className="timing-label">Total</span>
+                  <span className="timing-value">{timings.total_ms}ms</span>
+                </div>
+              </div>
             </div>
           )}
         </div>

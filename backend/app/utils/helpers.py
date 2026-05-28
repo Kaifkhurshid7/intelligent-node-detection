@@ -11,7 +11,9 @@ from datetime import datetime, timezone
 from typing import Optional, Dict, Any, Set
 
 
-def save_uploaded_file(file, upload_dir: Path) -> Path:
+def save_uploaded_file(
+    file, upload_dir: Path, content: Optional[bytes] = None
+) -> Path:
     """
     Save an uploaded file with a unique filename.
 
@@ -21,6 +23,7 @@ def save_uploaded_file(file, upload_dir: Path) -> Path:
     Args:
         file: FastAPI UploadFile object.
         upload_dir: Target directory for the saved file.
+        content: Pre-read file bytes (avoids double-read in async context).
 
     Returns:
         Path to the saved file on disk.
@@ -31,8 +34,11 @@ def save_uploaded_file(file, upload_dir: Path) -> Path:
     unique_name = f"{uuid.uuid4()}{extension}"
     filepath = upload_dir / unique_name
 
-    with open(filepath, "wb") as f:
-        f.write(file.file.read())
+    if content is not None:
+        filepath.write_bytes(content)
+    else:
+        with open(filepath, "wb") as f:
+            f.write(file.file.read())
 
     return filepath
 
@@ -42,29 +48,37 @@ def create_response(
     data: Optional[Dict[str, Any]] = None,
     message: str = "",
     error: Optional[str] = None,
+    request_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Generate a standardized API response envelope.
 
-    Provides consistent structure for all API responses, making
-    it easier for frontend consumers to handle success/error states.
+    Consistent structure across all endpoints makes it easier for
+    frontend consumers to handle success/error states uniformly.
 
     Args:
         success: Whether the operation completed successfully.
         data: Response payload.
         message: Human-readable status message.
         error: Error description (only for failures).
+        request_id: Trace ID for this request.
 
     Returns:
         Standardized response dictionary.
     """
-    return {
+    response = {
         "success": success,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "message": message or ("Success" if success else "Error"),
         "data": data,
-        "error": error,
     }
+
+    if error:
+        response["error"] = error
+    if request_id:
+        response["request_id"] = request_id
+
+    return response
 
 
 def validate_file_extension(filename: str, allowed: Set[str]) -> bool:
