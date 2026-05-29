@@ -77,6 +77,41 @@ function App() {
               <p>Flowchart, architecture diagram, or hand-drawn sketch</p>
             </div>
             <Upload key={resetCounter} onUploadSuccess={handleUploadSuccess} />
+
+            {/* Info section below upload to fill void space */}
+            <div className="panel-info">
+              <div className="info-section">
+                <h4>Pipeline Stages</h4>
+                <ol className="info-steps">
+                  <li>Preprocessing & binarization</li>
+                  <li>Contour detection & shape classification</li>
+                  <li>OCR text extraction</li>
+                  <li>Spatial merging & noise reduction</li>
+                  <li>Semantic classification (NLP)</li>
+                  <li>Edge detection & mapping</li>
+                  <li>Graph construction & narrative</li>
+                  <li>AI workflow intelligence</li>
+                </ol>
+              </div>
+              <div className="info-section">
+                <h4>Supported Formats</h4>
+                <div className="info-tags">
+                  <span className="info-tag">PNG</span>
+                  <span className="info-tag">JPG</span>
+                  <span className="info-tag">BMP</span>
+                  <span className="info-tag">GIF</span>
+                </div>
+              </div>
+              <div className="info-section">
+                <h4>Powered By</h4>
+                <div className="info-tags">
+                  <span className="info-tag">OpenCV</span>
+                  <span className="info-tag">Tesseract</span>
+                  <span className="info-tag">NetworkX</span>
+                  <span className="info-tag">Gemini AI</span>
+                </div>
+              </div>
+            </div>
           </aside>
 
           {/* Right: Results Panel */}

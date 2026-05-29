@@ -3,10 +3,20 @@ Centralized application configuration.
 
 All environment variables, paths, and tunable parameters are defined here.
 This provides a single source of truth for the entire backend.
+
+Loads .env file automatically for local development.
+In production (Docker/Render), env vars are injected by the platform.
 """
 
 import os
 from pathlib import Path
+
+# Load .env file if present (local development)
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
+except ImportError:
+    pass  # python-dotenv not installed — rely on system env vars
 
 
 # =============================================================================
@@ -88,3 +98,11 @@ HOST = os.getenv("HOST", "0.0.0.0")
 PORT = int(os.getenv("PORT", "8000"))
 DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 LOG_LEVEL = os.getenv("LOG_LEVEL", "info")
+
+
+# =============================================================================
+# LLM / AI Configuration
+# =============================================================================
+
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")

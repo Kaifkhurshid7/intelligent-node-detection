@@ -23,6 +23,7 @@ from app.processing.ocr_engine import OCREngine
 from app.processing.classifier import Classifier
 from app.processing.node_namer import NodeNamer
 from app.processing.graph_builder import GraphBuilder
+from app.services.llm.workflow_reasoner import WorkflowReasoner
 
 
 class AnalysisPipeline:
@@ -52,6 +53,7 @@ class AnalysisPipeline:
         self._classifier = Classifier()
         self._node_namer = NodeNamer()
         self._graph_builder = GraphBuilder()
+        self._reasoner = WorkflowReasoner()
 
     @property
     def ocr_available(self) -> bool:
@@ -62,6 +64,11 @@ class AnalysisPipeline:
     def nlp_available(self) -> bool:
         """Whether spaCy NLP model is loaded."""
         return self._classifier._nlp is not None
+
+    @property
+    def ai_available(self) -> bool:
+        """Whether LLM-powered AI features are operational."""
+        return self._reasoner.is_available
 
     def analyze(self, filepath: str) -> Dict[str, Any]:
         """
@@ -143,12 +150,33 @@ class AnalysisPipeline:
         timings["total_ms"] = _elapsed_ms(pipeline_start)
         logger.info(f"Pipeline complete in {timings['total_ms']:.1f}ms")
 
+        # Stage 9 (optional): AI workflow summary
+        ai_summary = None
+        if self._reasoner.is_available:
+            try:
+                import asyncio
+                t0 = time.perf_counter()
+                # Run async method from sync context
+                loop = asyncio.new_event_loop()
+                ai_summary = loop.run_until_complete(
+                    self._reasoner.summarize_workflow(final_nodes, edges)
+                )
+                loop.close()
+                timings["ai_summary_ms"] = _elapsed_ms(t0)
+                if ai_summary:
+                    logger.info("[AI] Workflow summary generated successfully")
+                else:
+                    logger.info("[AI] Summary generation returned empty")
+            except Exception as e:
+                logger.warning(f"[AI] Summary generation failed (non-critical): {e}")
+
         return {
             **graph_data,
             "nodes": final_nodes,
             "edges": edges,
             "text": text_elements,
             "timings": timings,
+            "ai_summary": ai_summary,
         }
 
     def _filter_nodes(self, nodes: list) -> tuple:

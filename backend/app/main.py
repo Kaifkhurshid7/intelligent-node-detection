@@ -17,6 +17,7 @@ from app.core.logging import logger
 from app.core.exceptions import AppError
 from app.core.middleware import RequestTracingMiddleware
 from app.api.routes import router
+from app.api.ai_routes import ai_router
 
 
 def create_app() -> FastAPI:
@@ -85,9 +86,11 @@ def create_app() -> FastAPI:
 
     # API v1 routes with prefix
     application.include_router(router, prefix="/api/v1", tags=["v1"])
+    application.include_router(ai_router, prefix="/api/v1", tags=["ai"])
 
     # Also mount at root for backward compatibility
     application.include_router(router)
+    application.include_router(ai_router)
 
     # Root endpoint
     @application.get("/", tags=["system"])

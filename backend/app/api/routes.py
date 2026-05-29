@@ -46,6 +46,7 @@ async def health_check():
         "dependencies": {
             "ocr": _pipeline.ocr_available,
             "nlp": _pipeline.nlp_available,
+            "ai": _pipeline.ai_available,
         },
     }
 

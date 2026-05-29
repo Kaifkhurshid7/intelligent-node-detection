@@ -9,6 +9,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import ForceGraph2D from "react-force-graph-2d";
 import { VIEW_MODES } from "../constants";
 import { getNodeColor, copyToClipboard } from "../utils/helpers";
+import AIPanel from "./AIPanel";
 
 export default function GraphView({ data }) {
   const [expandedNode, setExpandedNode] = useState(null);
@@ -246,6 +247,11 @@ export default function GraphView({ data }) {
           </div>
         )}
       </div>
+
+      {/* AI Workflow Intelligence Panel — directly below tab content */}
+      {nodes.length > 0 && (
+        <AIPanel nodes={nodes} edges={edges} />
+      )}
 
       {/* Metrics Dashboard */}
       {metadata.node_count != null && (
