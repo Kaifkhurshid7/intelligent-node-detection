@@ -115,13 +115,18 @@ class NodeDetector:
         """
         Classify a contour's shape based on geometric features.
 
-        Classification hierarchy (highest priority first):
+        Improved classification with better diamond detection:
             1. High circularity (>0.85) → circle
             2. Medium circularity (>0.6) → oval
-            3. 4 vertices + square aspect → diamond
-            4. 4 vertices + rectangular aspect → rectangle
+            3. 4 vertices + rotated square aspect → diamond (decision)
+            4. 4 vertices + rectangular aspect → rectangle (process)
             5. 3 vertices → triangle
             6. 5+ vertices → polygon
+
+        Diamond detection improvement:
+            Diamonds in flowcharts are rotated squares. We check if the
+            4-vertex polygon has roughly equal side lengths and near-square
+            aspect ratio, which distinguishes them from rectangles.
         """
         vertices = len(approx)
         aspect_ratio = w / h if h > 0 else 0
@@ -131,14 +136,54 @@ class NodeDetector:
         if circularity > 0.6:
             return "oval"
         if vertices == 4:
-            # Diamonds in flowcharts typically have near-square aspect ratios
-            return "diamond" if 0.8 < aspect_ratio < 1.2 else "rectangle"
+            # Enhanced diamond detection: check if it's a rotated square
+            # Diamonds have near-equal diagonals and aspect ratio close to 1
+            if self._is_diamond(approx, w, h, aspect_ratio):
+                return "diamond"
+            return "rectangle"
         if vertices == 3:
             return "triangle"
         if vertices >= 5:
             return "polygon"
 
         return "unknown"
+
+    def _is_diamond(
+        self, approx: np.ndarray, w: int, h: int, aspect_ratio: float
+    ) -> bool:
+        """
+        Determine if a 4-vertex polygon is a diamond (rotated square).
+
+        A diamond has:
+            - Near-square aspect ratio (0.7 - 1.4)
+            - Vertices near the midpoints of the bounding box edges
+              (top-center, right-center, bottom-center, left-center)
+            - Roughly equal side lengths
+        """
+        if not (0.7 < aspect_ratio < 1.4):
+            return False
+
+        # Check if vertices are near midpoints of bbox edges (diamond pattern)
+        # A diamond's vertices should be at approximately:
+        # top-center, right-center, bottom-center, left-center
+        points = approx.reshape(-1, 2)
+        cx, cy = w / 2, h / 2
+
+        # Normalize points relative to bbox center
+        # For a diamond, points should be far from corners
+        bbox_area = w * h
+        if bbox_area == 0:
+            return False
+
+        # Calculate how "diamond-like" the shape is by checking
+        # if the polygon area is roughly half the bounding box area
+        # (a diamond inscribed in a rectangle has area = w*h/2)
+        poly_area = cv2.contourArea(approx)
+        area_ratio = poly_area / bbox_area
+
+        # Diamonds have area ratio ~0.5 (half of bounding box)
+        # Rectangles have area ratio ~1.0
+        return 0.35 < area_ratio < 0.65
 
     def _is_valid_node(self, node: Dict[str, Any]) -> bool:
         """

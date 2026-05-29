@@ -17,11 +17,13 @@ from app.core.logging import logger
 from app.core.exceptions import FileProcessingError, PipelineError
 from app.processing.preprocessor import Preprocessor
 from app.processing.node_detector import NodeDetector
+from app.processing.node_consolidator import NodeConsolidator
 from app.processing.node_processor import NodeProcessor
 from app.processing.edge_detector import EdgeDetector
 from app.processing.ocr_engine import OCREngine
 from app.processing.classifier import Classifier
 from app.processing.node_namer import NodeNamer
+from app.processing.graph_validator import GraphValidator
 from app.processing.graph_builder import GraphBuilder
 from app.services.llm.workflow_reasoner import WorkflowReasoner
 
@@ -47,11 +49,13 @@ class AnalysisPipeline:
     def __init__(self):
         self._preprocessor = Preprocessor()
         self._node_detector = NodeDetector()
+        self._node_consolidator = NodeConsolidator()
         self._node_processor = NodeProcessor()
         self._edge_detector = EdgeDetector()
         self._ocr_engine = OCREngine()
         self._classifier = Classifier()
         self._node_namer = NodeNamer()
+        self._graph_validator = GraphValidator()
         self._graph_builder = GraphBuilder()
         self._reasoner = WorkflowReasoner()
 
@@ -109,11 +113,15 @@ class AnalysisPipeline:
         text_elements = self._ocr_engine.extract_text(resized)
         timings["ocr_ms"] = _elapsed_ms(t0)
 
-        # Stage 4: Merge fragmented contours into logical nodes
+        # Stage 4: Node consolidation (critical accuracy layer)
         t0 = time.perf_counter()
-        logical_nodes = self._node_processor.merge_proximal_nodes(raw_nodes)
+        consolidated_nodes = self._node_consolidator.consolidate(raw_nodes)
+        timings["consolidation_ms"] = _elapsed_ms(t0)
+
+        # Stage 5: Assign text to consolidated nodes
+        t0 = time.perf_counter()
         logical_nodes = self._node_processor.assign_text_to_nodes(
-            logical_nodes, text_elements
+            consolidated_nodes, text_elements
         )
         timings["merging_ms"] = _elapsed_ms(t0)
 
@@ -137,7 +145,14 @@ class AnalysisPipeline:
         edges = self._edge_detector.detect(binary, final_nodes, edge_labels)
         timings["edge_detection_ms"] = _elapsed_ms(t0)
 
-        # Stage 8: Build graph and compute metrics
+        # Stage 8: Graph validation and auto-repair
+        t0 = time.perf_counter()
+        final_nodes, edges, violations, repairs = self._graph_validator.validate_and_repair(
+            final_nodes, edges
+        )
+        timings["validation_ms"] = _elapsed_ms(t0)
+
+        # Stage 9: Build graph and compute metrics
         t0 = time.perf_counter()
         graph_data = self._graph_builder.build(
             elements=final_nodes,
@@ -145,6 +160,8 @@ class AnalysisPipeline:
             raw_nodes_count=len(raw_nodes),
             raw_edges_count=raw_edges_count,
         )
+        # Inject validation results
+        graph_data["logical_graph"]["metadata"]["auto_repairs"] = repairs
         timings["graph_construction_ms"] = _elapsed_ms(t0)
 
         timings["total_ms"] = _elapsed_ms(pipeline_start)
